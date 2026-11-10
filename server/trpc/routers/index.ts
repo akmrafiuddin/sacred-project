@@ -6,11 +6,13 @@ import { defaultHomeData, type HomePageData } from "../../cms/defaults";
 import { eventsRouter } from "./events";
 import { noticesRouter } from "./notices";
 import { pujasRouter } from "./pujas";
+import { deitiesRouter } from "./deities";
 
 export const appRouter = router({
   events: eventsRouter,
   notices: noticesRouter,
   pujas: pujasRouter,
+  deities: deitiesRouter,
   todo: router({
     list: publicProcedure.query(({ ctx }) => ctx.db.select().from(todos)),
 
