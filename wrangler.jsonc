@@ -10,5 +10,11 @@
       "database_id": "local-placeholder",
       "migrations_dir": "drizzle"
     }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "temple-cf-media"
+    }
   ]
 }
