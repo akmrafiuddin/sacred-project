@@ -1,0 +1,33 @@
+{
+  "name": "temple-cf",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "typecheck": "nuxt typecheck",
+    "db:generate": "drizzle-kit generate",
+    "db:local": "wrangler d1 migrations apply DB --local"
+  },
+  "dependencies": {
+    "@trpc/client": "^11.25.2",
+    "@trpc/server": "^11.25.2",
+    "drizzle-orm": "^0.45.4",
+    "nuxt": "^4.6.4",
+    "trpc-nuxt": "^2.2.0",
+    "vue": "^3.5.44",
+    "vue-router": "^5.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261108.1",
+    "drizzle-kit": "^0.31.11",
+    "nitro-cloudflare-dev": "^0.2.2",
+    "typescript": "^5.7.0",
+    "vue-tsc": "^3.3.14",
+    "wrangler": "^4.158.0"
+  }
+}
