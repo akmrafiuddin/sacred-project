@@ -4,9 +4,11 @@ import { router, publicProcedure, staffProcedure } from "../init";
 import { todos, homeCms } from "../../db/schema";
 import { defaultHomeData, type HomePageData } from "../../cms/defaults";
 import { eventsRouter } from "./events";
+import { noticesRouter } from "./notices";
 
 export const appRouter = router({
   events: eventsRouter,
+  notices: noticesRouter,
   todo: router({
     list: publicProcedure.query(({ ctx }) => ctx.db.select().from(todos)),
 
