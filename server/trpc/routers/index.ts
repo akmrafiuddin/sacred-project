@@ -5,10 +5,12 @@ import { todos, homeCms } from "../../db/schema";
 import { defaultHomeData, type HomePageData } from "../../cms/defaults";
 import { eventsRouter } from "./events";
 import { noticesRouter } from "./notices";
+import { pujasRouter } from "./pujas";
 
 export const appRouter = router({
   events: eventsRouter,
   notices: noticesRouter,
+  pujas: pujasRouter,
   todo: router({
     list: publicProcedure.query(({ ctx }) => ctx.db.select().from(todos)),
 
