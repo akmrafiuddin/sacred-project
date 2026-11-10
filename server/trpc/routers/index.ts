@@ -9,6 +9,7 @@ import { pujasRouter } from "./pujas";
 import { deitiesRouter } from "./deities";
 import { scheduleRouter } from "./schedule";
 import { pagesRouter } from "./pages";
+import { galleryRouter } from "./gallery";
 
 export const appRouter = router({
   events: eventsRouter,
@@ -17,6 +18,7 @@ export const appRouter = router({
   deities: deitiesRouter,
   schedule: scheduleRouter,
   pages: pagesRouter,
+  gallery: galleryRouter,
   todo: router({
     list: publicProcedure.query(({ ctx }) => ctx.db.select().from(todos)),
 
