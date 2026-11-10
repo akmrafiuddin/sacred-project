@@ -11,6 +11,7 @@ export * from "./bookings";
 export * from "./messages";
 export * from "./volunteers";
 export * from "./media";
+export * from "./audit";
 
 
 

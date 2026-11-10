@@ -14,6 +14,7 @@ import { bookingsRouter } from "./bookings";
 import { messagesRouter } from "./messages";
 import { volunteersRouter } from "./volunteers";
 import { mediaRouter } from "./media";
+import { auditRouter } from "./audit";
 
 export const appRouter = router({
   events: eventsRouter,
@@ -27,6 +28,7 @@ export const appRouter = router({
   messages: messagesRouter,
   volunteers: volunteersRouter,
   media: mediaRouter,
+  audit: auditRouter,
   todo: router({
     list: publicProcedure.query(({ ctx }) => ctx.db.select().from(todos)),
 
