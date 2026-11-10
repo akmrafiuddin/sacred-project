@@ -10,6 +10,9 @@ import { deitiesRouter } from "./deities";
 import { scheduleRouter } from "./schedule";
 import { pagesRouter } from "./pages";
 import { galleryRouter } from "./gallery";
+import { bookingsRouter } from "./bookings";
+import { messagesRouter } from "./messages";
+import { volunteersRouter } from "./volunteers";
 
 export const appRouter = router({
   events: eventsRouter,
@@ -19,6 +22,9 @@ export const appRouter = router({
   schedule: scheduleRouter,
   pages: pagesRouter,
   gallery: galleryRouter,
+  bookings: bookingsRouter,
+  messages: messagesRouter,
+  volunteers: volunteersRouter,
   todo: router({
     list: publicProcedure.query(({ ctx }) => ctx.db.select().from(todos)),
 

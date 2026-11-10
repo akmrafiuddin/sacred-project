@@ -7,6 +7,10 @@ export * from "./deities";
 export * from "./schedule";
 export * from "./pages";
 export * from "./gallery";
+export * from "./bookings";
+export * from "./messages";
+export * from "./volunteers";
+
 
 
 
