@@ -1,11 +1,20 @@
 <script setup lang="ts">
-const { isAuthenticated } = useAdminAuth();
+import { watchEffect } from "vue";
+import { useAuth } from "~/composables/useAuth";
 
-if (isAuthenticated.value) {
-  navigateTo("/admin/dashboard");
-} else {
-  navigateTo("/admin/login");
-}
+const { isAuthenticated, isStaff } = useAuth();
+
+watchEffect(() => {
+  if (isAuthenticated.value) {
+    if (isStaff.value) {
+      navigateTo("/admin/dashboard");
+    } else {
+      navigateTo("/account");
+    }
+  } else {
+    navigateTo("/admin/login");
+  }
+});
 </script>
 
 <template>

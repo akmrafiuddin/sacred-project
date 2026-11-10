@@ -1,19 +1,26 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watchEffect } from "vue";
+import { useAuth } from "~/composables/useAuth";
 
 useHead({
-  title: "Super Admin Login - Temple Console",
+  title: "Sanctum Login - Temple Console",
 });
 
-const { isAuthenticated, login } = useAdminAuth();
+const { isAuthenticated, isStaff, isUser, login } = useAuth();
 
-// If already logged in, forward to dashboard
-if (isAuthenticated.value) {
-  navigateTo("/admin/dashboard");
-}
+// If already logged in, redirect based on role
+watchEffect(() => {
+  if (isAuthenticated.value) {
+    if (isStaff.value) {
+      navigateTo("/admin/dashboard");
+    } else if (isUser.value) {
+      navigateTo("/account");
+    }
+  }
+});
 
 const email = ref("admin@temple.org");
-const password = ref("admin123");
+const password = ref("admin123456");
 const showPassword = ref(false);
 const rememberMe = ref(true);
 const isLoading = ref(false);
@@ -28,9 +35,13 @@ const handleLogin = async () => {
 
   isLoading.value = true;
   try {
-    const res = await login(email.value, password.value);
+    const res = await login(email.value, password.value, rememberMe.value);
     if (res.success) {
-      await navigateTo("/admin/dashboard");
+      if (res.role === "admin" || res.role === "editor") {
+        await navigateTo("/admin/dashboard");
+      } else {
+        await navigateTo("/account");
+      }
     } else {
       errorMessage.value = res.error || "Authentication failed. Please verify credentials.";
     }
@@ -43,7 +54,7 @@ const handleLogin = async () => {
 
 const fillDemoCredentials = () => {
   email.value = "admin@temple.org";
-  password.value = "admin123";
+  password.value = "admin123456";
   errorMessage.value = "";
 };
 </script>
@@ -179,7 +190,7 @@ const fillDemoCredentials = () => {
           <div class="demo-content">
             <span class="demo-title">Demo Credentials:</span>
             <span class="demo-creds">
-              <code class="helper-code">admin@temple.org</code> / <code class="helper-code">admin123</code>
+              <code class="helper-code">admin@temple.org</code> / <code class="helper-code">admin123456</code>
             </span>
           </div>
           <button type="button" class="btn-autofill" @click="fillDemoCredentials">

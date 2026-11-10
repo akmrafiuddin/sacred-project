@@ -15,6 +15,13 @@
       "when": 1794254297607,
       "tag": "0001_broken_the_spike",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794306624654,
+      "tag": "0002_dapper_nightcrawler",
+      "breakpoints": true
     }
   ]
 }

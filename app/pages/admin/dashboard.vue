@@ -1,16 +1,21 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watchEffect } from "vue";
+import { useAuth } from "~/composables/useAuth";
 
 useHead({
-  title: "Super Admin Dashboard - Temple Console",
+  title: "Sanctum Dashboard - Temple Console",
 });
 
-const { isAuthenticated, currentUser, logout } = useAdminAuth();
+const { isAuthenticated, isStaff, isAdmin, isEditor, currentUser, role, logout } = useAuth();
 
-// Route guard - user must be authenticated
-if (!isAuthenticated.value) {
-  navigateTo("/admin/login");
-}
+// Route guard - only admin or editor can access /admin/**
+watchEffect(() => {
+  if (!isAuthenticated.value) {
+    navigateTo("/admin/login");
+  } else if (!isStaff.value) {
+    navigateTo("/account");
+  }
+});
 
 const isSidebarOpen = ref(false);
 const activeModule = ref("dashboard");
@@ -106,11 +111,14 @@ const navItems = [
       <div class="sidebar-user-footer">
         <div class="user-info">
           <div class="user-details">
-            <span class="user-name">{{ currentUser?.name || "Super Admin" }}</span>
+            <span class="user-name">{{ currentUser?.name || "Sanctum User" }}</span>
+            <span class="user-role-badge" :class="isAdmin ? 'role-admin' : 'role-editor'">
+              {{ isAdmin ? "Super Admin" : "Content Editor" }}
+            </span>
           </div>
         </div>
 
-        <button type="button" class="btn-logout" @click="logout" title="Sign out of console">
+        <button type="button" class="btn-logout" @click="() => logout()" title="Sign out of console">
           <svg viewBox="0 0 20 20" fill="currentColor" class="logout-icon">
             <path
               fill-rule="evenodd"
@@ -398,6 +406,29 @@ const navItems = [
   font-size: 0.875rem;
   font-weight: 700;
   color: var(--text-primary);
+}
+
+.user-role-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  width: fit-content;
+  margin-top: 0.2rem;
+}
+
+.role-admin {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--accent-text);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.role-editor {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .user-role {

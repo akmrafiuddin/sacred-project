@@ -2,8 +2,12 @@ import { drizzle } from "drizzle-orm/d1";
 import { eq } from "drizzle-orm";
 import * as schema from "../../db/schema";
 import { defaultHomeData, type HomePageData } from "../../cms/defaults";
+import { requireRole } from "../../utils/session";
 
 export default defineEventHandler(async (event) => {
+  // Only admin and editor can modify CMS data
+  await requireRole(event, ["admin", "editor"]);
+
   const body = await readBody(event);
   const env = event.context.cloudflare?.env as { DB: any } | undefined;
   if (!env?.DB) {

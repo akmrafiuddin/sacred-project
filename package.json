@@ -9,7 +9,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
-    "test": "vitest run",
+    "test": "bun test",
     "db:generate": "drizzle-kit generate",
     "db:local": "wrangler d1 migrations apply DB --local",
     "db:remote": "wrangler d1 migrations apply DB --remote",
@@ -19,6 +19,7 @@
   "dependencies": {
     "@trpc/client": "^11.25.2",
     "@trpc/server": "^11.25.2",
+    "better-auth": "^1.7.19",
     "drizzle-orm": "^0.45.4",
     "nuxt": "^4.6.4",
     "trpc-nuxt": "^2.2.0",

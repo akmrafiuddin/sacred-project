@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { router, publicProcedure } from "../init";
+import { router, publicProcedure, staffProcedure } from "../init";
 import { todos, homeCms } from "../../db/schema";
 import { defaultHomeData, type HomePageData } from "../../cms/defaults";
 
@@ -56,7 +56,7 @@ export const appRouter = router({
       }
     }),
 
-    saveHomeData: publicProcedure
+    saveHomeData: staffProcedure
       .input(z.record(z.string(), z.any()))
       .mutation(async ({ ctx, input }) => {
         const existing = await ctx.db
@@ -92,7 +92,7 @@ export const appRouter = router({
         return merged;
       }),
 
-    resetDefaults: publicProcedure.mutation(async ({ ctx }) => {
+    resetDefaults: staffProcedure.mutation(async ({ ctx }) => {
       await ctx.db
         .insert(homeCms)
         .values({
