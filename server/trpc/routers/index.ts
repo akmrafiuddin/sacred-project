@@ -7,12 +7,14 @@ import { eventsRouter } from "./events";
 import { noticesRouter } from "./notices";
 import { pujasRouter } from "./pujas";
 import { deitiesRouter } from "./deities";
+import { scheduleRouter } from "./schedule";
 
 export const appRouter = router({
   events: eventsRouter,
   notices: noticesRouter,
   pujas: pujasRouter,
   deities: deitiesRouter,
+  schedule: scheduleRouter,
   todo: router({
     list: publicProcedure.query(({ ctx }) => ctx.db.select().from(todos)),
 
