@@ -57,6 +57,13 @@
       "when": 1794307840326,
       "tag": "0007_brief_human_fly",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1794307970401,
+      "tag": "0008_fearless_titania",
+      "breakpoints": true
     }
   ]
 }

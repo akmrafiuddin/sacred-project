@@ -5,6 +5,8 @@ export * from "./notices";
 export * from "./pujas";
 export * from "./deities";
 export * from "./schedule";
+export * from "./pages";
+
 
 
 
