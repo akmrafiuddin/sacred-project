@@ -22,6 +22,13 @@
       "when": 1794306624654,
       "tag": "0002_dapper_nightcrawler",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1794307308147,
+      "tag": "0003_special_zodiak",
+      "breakpoints": true
     }
   ]
 }
