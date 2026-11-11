@@ -41,13 +41,13 @@ onMounted(() => {
 
 // Admin Navigation Menu items
 const navItems = [
-  { id: "dashboard", label: "Dashboard Overview", icon: "📊", badge: "Live" },
-  { id: "schedule", label: "Daily Schedule", icon: "🔔", badge: "Rituals" },
-  { id: "pujas", label: "Pujas & Services", icon: "🪔", badge: "Offerings" },
-  { id: "events", label: "Festivals & Events", icon: "🎉", badge: "Festivals" },
-  { id: "deities", label: "Deities & Shrines", icon: "🕉️", badge: "Sacred" },
-  { id: "notices", label: "Temple Notices", icon: "📢", badge: "Board" },
-  { id: "bookings", label: "Puja Bookings", icon: "📋", badge: "Devotees" },
+  { id: "dashboard", label: "Dashboard Overview", badge: "Live" },
+  { id: "schedule", label: "Daily Schedule", badge: "Rituals" },
+  { id: "pujas", label: "Pujas & Services", badge: "Offerings" },
+  { id: "events", label: "Festivals & Events", badge: "Festivals" },
+  { id: "deities", label: "Deities & Shrines", badge: "Sacred" },
+  { id: "notices", label: "Temple Notices", badge: "Board" },
+  { id: "bookings", label: "Puja Bookings", badge: "Devotees" },
 ];
 
 // Navigation Groups for clean sidebar structure
@@ -55,22 +55,22 @@ const navGroups = computed(() => [
   {
     title: "Overview",
     items: [
-      { id: "dashboard", label: "Dashboard", icon: "📊", badge: "" },
+      { id: "dashboard", label: "Dashboard", badge: "" },
     ],
   },
   {
     title: "Rituals & Pujas",
     items: [
-      { id: "schedule", label: "Daily Schedule", icon: "🔔", badge: "" },
-      { id: "pujas", label: "Pujas & Services", icon: "🪔", badge: "" },
-      { id: "events", label: "Festivals & Events", icon: "🎉", badge: "" },
+      { id: "schedule", label: "Daily Schedule", badge: "" },
+      { id: "pujas", label: "Pujas & Services", badge: "" },
+      { id: "events", label: "Festivals & Events", badge: "" },
     ],
   },
   {
     title: "Mandir Content",
     items: [
-      { id: "deities", label: "Deities & Shrines", icon: "🕉️", badge: "" },
-      { id: "notices", label: "Temple Notices", icon: "📢", badge: "" },
+      { id: "deities", label: "Deities & Shrines", badge: "" },
+      { id: "notices", label: "Temple Notices", badge: "" },
     ],
   },
   {
@@ -79,7 +79,6 @@ const navGroups = computed(() => [
       {
         id: "bookings",
         label: "Puja Bookings",
-        icon: "📋",
         badge: newBookingsCount.value > 0 ? `${newBookingsCount.value} new` : "",
       },
     ],
@@ -1602,9 +1601,7 @@ const executeDeleteEvent = async () => {
     <!-- TOAST NOTIFICATION -->
     <transition name="toast-fade">
       <div v-if="toast.show" class="admin-toast" :class="`toast-${toast.type}`">
-        <span class="toast-icon">
-          {{ toast.type === 'success' ? '✓' : toast.type === 'error' ? '✕' : 'ℹ' }}
-        </span>
+        
         <span class="toast-msg">{{ toast.message }}</span>
       </div>
     </transition>
@@ -1621,15 +1618,7 @@ const executeDeleteEvent = async () => {
       <!-- Sidebar Header / Logo -->
       <div class="sidebar-header">
         <NuxtLink to="/" class="sidebar-logo">
-          <div class="logo-mark">
-            <svg viewBox="0 0 32 32" fill="none" class="temple-svg-icon" xmlns="http://www.w3.org/2000/svg">
-              <path d="M16 2L19 7H13L16 2Z" fill="#0f172a" />
-              <path d="M11 8H21L22 13H10L11 8Z" fill="#0f172a" fill-opacity="0.9" />
-              <path d="M8 14H24L26 21H6L8 14Z" fill="#0f172a" fill-opacity="0.8" />
-              <path d="M4 22H28V29C28 29.5523 27.5523 30 27 30H5C4.44772 30 4 29.5523 4 29V22Z" fill="#0f172a" fill-opacity="0.7" />
-              <path d="M13 30V24C13 22.3431 14.3431 21 16 21C17.6569 21 19 22.3431 19 24V30H13Z" fill="#ffffff" />
-            </svg>
-          </div>
+          
           <div class="logo-text">
             <span class="brand-title">SANCTUM</span>
             <span class="brand-tag">{{ isAdmin ? 'Admin Console' : 'Editor Console' }}</span>
@@ -1659,7 +1648,6 @@ const executeDeleteEvent = async () => {
                 :class="{ 'item-active': activeModule === item.id }"
                 @click="activeModule = item.id as any; isSidebarOpen = false"
               >
-                <span class="item-icon">{{ item.icon }}</span>
                 <span class="item-label">{{ item.label }}</span>
                 <span v-if="item.badge" class="item-badge" :class="{ 'badge-alert': item.id === 'bookings' && newBookingsCount > 0 }">
                   {{ item.badge }}
@@ -1685,13 +1673,6 @@ const executeDeleteEvent = async () => {
         </div>
 
         <button type="button" class="btn-logout" @click="() => logout()" title="Sign out of console">
-          <svg viewBox="0 0 20 20" fill="currentColor" class="logout-icon">
-            <path
-              fill-rule="evenodd"
-              d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z"
-              clip-rule="evenodd"
-            />
-          </svg>
           <span>Sign Out</span>
         </button>
       </div>
@@ -1708,11 +1689,7 @@ const executeDeleteEvent = async () => {
             aria-label="Open sidebar"
             @click="isSidebarOpen = true"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
+            <span>Menu</span>
           </button>
 
           <div class="breadcrumb">
@@ -1735,13 +1712,11 @@ const executeDeleteEvent = async () => {
           <!-- Notification Bell Shortcut to Bookings -->
           <button
             type="button"
-            class="topbar-icon-btn"
+            class="topbar-notifications-btn"
             title="Bookings Notifications"
             @click="activeModule = 'bookings'"
           >
-            <svg viewBox="0 0 20 20" fill="currentColor" class="topbar-svg">
-              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-            </svg>
+            <span>Bookings</span>
             <span v-if="newBookingsCount > 0" class="topbar-badge">{{ newBookingsCount }}</span>
           </button>
 
@@ -1754,14 +1729,7 @@ const executeDeleteEvent = async () => {
           <!-- Public site shortcut -->
           <NuxtLink to="/" target="_blank" class="btn-live-site">
             <span>View Site</span>
-            <svg viewBox="0 0 20 20" fill="currentColor" class="link-arrow">
-              <path
-                d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z"
-              />
-              <path
-                d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"
-              />
-            </svg>
+            
           </NuxtLink>
         </div>
       </header>
@@ -1785,7 +1753,6 @@ const executeDeleteEvent = async () => {
           <div class="kpi-grid">
             <!-- 1. Daily Schedule -->
             <div class="kpi-card" @click="activeModule = 'schedule'">
-              <div class="kpi-icon-wrap gold-icon">🔔</div>
               <div class="kpi-content">
                 <span class="kpi-label">Daily Aartis & Pujas</span>
                 <span class="kpi-val">{{ totalRitualsCount }}</span>
@@ -1797,7 +1764,6 @@ const executeDeleteEvent = async () => {
 
             <!-- 2. Pujas & Services -->
             <div class="kpi-card" @click="activeModule = 'pujas'">
-              <div class="kpi-icon-wrap amber-icon">🪔</div>
               <div class="kpi-content">
                 <span class="kpi-label">Pujas & Services</span>
                 <span class="kpi-val">{{ totalPujasCount }}</span>
@@ -1809,7 +1775,6 @@ const executeDeleteEvent = async () => {
 
             <!-- 3. Festivals & Events -->
             <div class="kpi-card" @click="activeModule = 'events'">
-              <div class="kpi-icon-wrap purple-icon">🎉</div>
               <div class="kpi-content">
                 <span class="kpi-label">Festivals & Events</span>
                 <span class="kpi-val">{{ upcomingEventsCount }} <span class="text-xs font-normal text-muted">Upcoming</span></span>
@@ -1821,7 +1786,6 @@ const executeDeleteEvent = async () => {
 
             <!-- 4. Deities & Shrines -->
             <div class="kpi-card" @click="activeModule = 'deities'">
-              <div class="kpi-icon-wrap gold-icon">🕉️</div>
               <div class="kpi-content">
                 <span class="kpi-label">Deities & Shrines</span>
                 <span class="kpi-val">{{ totalDeitiesCount }}</span>
@@ -1833,7 +1797,6 @@ const executeDeleteEvent = async () => {
 
             <!-- 5. Temple Notices -->
             <div class="kpi-card" @click="activeModule = 'notices'">
-              <div class="kpi-icon-wrap blue-icon">📢</div>
               <div class="kpi-content">
                 <span class="kpi-label">Temple Notices</span>
                 <span class="kpi-val">{{ totalNoticesCount }}</span>
@@ -1845,12 +1808,11 @@ const executeDeleteEvent = async () => {
 
             <!-- 6. Puja Bookings -->
             <div class="kpi-card" @click="activeModule = 'bookings'">
-              <div class="kpi-icon-wrap" :class="newBookingsCount > 0 ? 'amber-icon' : 'green-icon'">📋</div>
               <div class="kpi-content">
                 <span class="kpi-label">Puja Bookings</span>
                 <span class="kpi-val">{{ totalBookingsCount }}</span>
                 <span class="kpi-trend">
-                  <span v-if="newBookingsCount > 0" class="trend-amber font-bold">⚡ {{ newBookingsCount }} New Requests</span>
+                  <span v-if="newBookingsCount > 0" class="trend-amber font-bold">{{ newBookingsCount }} New Requests</span>
                   <span v-else class="text-green-400">All Requests Handled</span>
                 </span>
               </div>
@@ -1858,7 +1820,6 @@ const executeDeleteEvent = async () => {
 
             <!-- 7. Next Aarti -->
             <div class="kpi-card">
-              <div class="kpi-icon-wrap blue-icon">⏱️</div>
               <div class="kpi-content">
                 <span class="kpi-label">Dhaka Time & Next Aarti</span>
                 <span class="kpi-val text-sm font-bold text-accent">
@@ -1879,27 +1840,21 @@ const executeDeleteEvent = async () => {
             </div>
             <div class="quick-actions-grid">
               <button type="button" class="action-btn" @click="activeModule = 'schedule'">
-                <span class="action-btn-icon">🔔</span>
                 <span>Manage Daily Schedule</span>
               </button>
               <button type="button" class="action-btn" @click="activeModule = 'pujas'">
-                <span class="action-btn-icon">🪔</span>
                 <span>Manage Pujas & Services</span>
               </button>
               <button type="button" class="action-btn" @click="activeModule = 'events'">
-                <span class="action-btn-icon">🎉</span>
                 <span>Festivals & Events</span>
               </button>
               <button type="button" class="action-btn" @click="activeModule = 'deities'">
-                <span class="action-btn-icon">🕉️</span>
                 <span>Manage Deities & Shrines</span>
               </button>
               <button type="button" class="action-btn" @click="activeModule = 'notices'">
-                <span class="action-btn-icon">📢</span>
                 <span>Notice Board</span>
               </button>
               <button type="button" class="action-btn" @click="activeModule = 'bookings'">
-                <span class="action-btn-icon">📋</span>
                 <span>Review Puja Bookings</span>
               </button>
             </div>
@@ -1920,7 +1875,7 @@ const executeDeleteEvent = async () => {
             </div>
             <div class="module-header-actions">
               <button type="button" class="btn-refresh" @click="fetchScheduleData" title="Refresh schedule">
-                ↻ Refresh
+                Refresh
               </button>
               <button type="button" class="btn-add-primary" @click="openAddModal">
                 <span>+ Add Aarti / Ritual</span>
@@ -1951,7 +1906,6 @@ const executeDeleteEvent = async () => {
           <!-- Search & Filter Controls -->
           <div class="filters-bar">
             <div class="search-box">
-              <span class="search-icon">🔍</span>
               <input
                 type="text"
                 v-model="searchQuery"
@@ -1997,7 +1951,6 @@ const executeDeleteEvent = async () => {
             </div>
 
             <div v-else-if="filteredSchedule.length === 0" class="empty-state">
-              <span class="empty-icon">🪔</span>
               <h3 class="empty-title">No rituals found</h3>
               <p class="empty-desc">
                 {{ searchQuery ? 'No rituals match your search filter.' : 'No daily schedule items have been added yet.' }}
@@ -2040,7 +1993,6 @@ const executeDeleteEvent = async () => {
                 <!-- Time Pill -->
                 <div class="time-col">
                   <div class="ritual-time-badge">
-                    <span class="clock-icon">🕒</span>
                     <span class="time-text">{{ item.time }}</span>
                   </div>
                 </div>
@@ -2078,7 +2030,7 @@ const executeDeleteEvent = async () => {
                     title="Edit ritual"
                     @click="openEditModal(item)"
                   >
-                    <span>✏️ Edit</span>
+                    <span>Edit</span>
                   </button>
                   <button
                     type="button"
@@ -2086,7 +2038,7 @@ const executeDeleteEvent = async () => {
                     title="Delete ritual"
                     @click="confirmDelete(item)"
                   >
-                    <span>🗑️</span>
+                    <span>Delete</span>
                   </button>
                 </div>
               </div>
@@ -2108,7 +2060,7 @@ const executeDeleteEvent = async () => {
             </div>
             <div class="module-header-actions">
               <button type="button" class="btn-refresh" @click="fetchPujasData" title="Refresh pujas list">
-                ↻ Refresh
+                Refresh
               </button>
               <button type="button" class="btn-add-primary" @click="openAddPujaModal">
                 <span>+ Add Puja Offering</span>
@@ -2119,7 +2071,6 @@ const executeDeleteEvent = async () => {
           <!-- Filters Bar -->
           <div class="filters-bar">
             <div class="search-box">
-              <span class="search-icon">🔍</span>
               <input
                 type="text"
                 v-model="pujaSearchQuery"
@@ -2173,7 +2124,6 @@ const executeDeleteEvent = async () => {
             </div>
 
             <div v-else-if="filteredPujas.length === 0" class="empty-state">
-              <span class="empty-icon">🪔</span>
               <h3 class="empty-title">No puja offerings found</h3>
               <p class="empty-desc">
                 {{ pujaSearchQuery ? 'No pujas match your search filter.' : 'No puja offerings have been configured in Sanctum yet.' }}
@@ -2220,7 +2170,6 @@ const executeDeleteEvent = async () => {
                     <span class="price-val">{{ item.priceBdt.toLocaleString() }}</span>
                   </div>
                   <div class="puja-duration-pill">
-                    <span>⏱️</span>
                     <span>{{ item.duration || 'Flexible' }}</span>
                   </div>
                 </div>
@@ -2237,7 +2186,6 @@ const executeDeleteEvent = async () => {
 
                   <!-- Samagri / Offered Items Box -->
                   <div v-if="item.offered?.en || item.offered?.bn" class="puja-offered-box">
-                    <span class="offered-icon">🌸</span>
                     <div class="offered-content">
                       <span class="offered-label">Included Samagri:</span>
                       <span class="offered-text">{{ item.offered?.en }}</span>
@@ -2293,7 +2241,7 @@ const executeDeleteEvent = async () => {
                     title="Edit puja details"
                     @click="openEditPujaModal(item)"
                   >
-                    <span>✏️ Edit</span>
+                    <span>Edit</span>
                   </button>
                   <button
                     type="button"
@@ -2301,7 +2249,7 @@ const executeDeleteEvent = async () => {
                     title="Delete puja offering"
                     @click="confirmDeletePuja(item)"
                   >
-                    <span>🗑️</span>
+                    <span>Delete</span>
                   </button>
                 </div>
               </div>
@@ -2323,7 +2271,7 @@ const executeDeleteEvent = async () => {
             </div>
             <div class="module-header-actions">
               <button type="button" class="btn-refresh" @click="fetchEventsData" title="Refresh events list">
-                ↻ Refresh
+                Refresh
               </button>
               <button type="button" class="btn-add-primary" @click="openAddEventModal">
                 <span>+ Add Event / Festival</span>
@@ -2334,7 +2282,6 @@ const executeDeleteEvent = async () => {
           <!-- Filters Bar -->
           <div class="filters-bar">
             <div class="search-box">
-              <span class="search-icon">🔍</span>
               <input
                 type="text"
                 v-model="eventSearchQuery"
@@ -2359,7 +2306,7 @@ const executeDeleteEvent = async () => {
                 :class="{ 'filter-pill-active': eventFilter === 'upcoming' }"
                 @click="eventFilter = 'upcoming'"
               >
-                ⭐ Upcoming ({{ upcomingEventsCount }})
+                Upcoming ({{ upcomingEventsCount }})
               </button>
               <button
                 type="button"
@@ -2367,7 +2314,7 @@ const executeDeleteEvent = async () => {
                 :class="{ 'filter-pill-active': eventFilter === 'festival' }"
                 @click="eventFilter = 'festival'"
               >
-                🎉 Festivals ({{ festivalsCount }})
+                Festivals ({{ festivalsCount }})
               </button>
               <button
                 type="button"
@@ -2375,7 +2322,7 @@ const executeDeleteEvent = async () => {
                 :class="{ 'filter-pill-active': eventFilter === 'special_puja' }"
                 @click="eventFilter = 'special_puja'"
               >
-                🪔 Special Pujas
+                Special Pujas
               </button>
               <button
                 type="button"
@@ -2383,7 +2330,7 @@ const executeDeleteEvent = async () => {
                 :class="{ 'filter-pill-active': eventFilter === 'seva' }"
                 @click="eventFilter = 'seva'"
               >
-                🌿 Seva
+                Seva
               </button>
               <button
                 type="button"
@@ -2412,7 +2359,6 @@ const executeDeleteEvent = async () => {
             </div>
 
             <div v-else-if="filteredEvents.length === 0" class="empty-state">
-              <span class="empty-icon">🎉</span>
               <h3 class="empty-title">No events or festivals found</h3>
               <p class="empty-desc">
                 {{ eventSearchQuery ? 'No calendar entries match your search query.' : 'No festivals or events have been scheduled yet.' }}
@@ -2431,17 +2377,17 @@ const executeDeleteEvent = async () => {
               >
                 <!-- Date, Kind & Time Meta Col -->
                 <div class="event-meta-col">
-                  <span class="event-date-badge">📅 {{ item.date }}</span>
-                  <span v-if="item.date >= getDhakaToday()" class="event-upcoming-tag">⭐ UPCOMING</span>
+                  <span class="event-date-badge">{{ item.date }}</span>
+                  <span v-if="item.date >= getDhakaToday()" class="event-upcoming-tag">UPCOMING</span>
                   <span v-else class="event-past-tag">PAST</span>
                   <span class="event-kind-tag" :class="`kind-${item.kind}`">
                     {{
-                      item.kind === 'festival' ? '🎉 Festival' :
-                      item.kind === 'special_puja' ? '🪔 Special Puja' :
-                      item.kind === 'seva' ? '🌿 Seva' : '📌 Other'
+                      item.kind === 'festival' ? 'Festival' :
+                      item.kind === 'special_puja' ? 'Special Puja' :
+                      item.kind === 'seva' ? 'Seva' : 'Other'
                     }}
                   </span>
-                  <span v-if="item.time" class="event-time-tag">⏰ {{ item.time }}</span>
+                  <span v-if="item.time" class="event-time-tag">{{ item.time }}</span>
                 </div>
 
                 <!-- Title, Tithi, Slug & Description Col -->
@@ -2450,7 +2396,7 @@ const executeDeleteEvent = async () => {
                     <h3 class="event-title-en">{{ item.title.en }}</h3>
                     <span v-if="item.title.bn" class="event-title-bn">{{ item.title.bn }}</span>
                     <span v-if="item.label?.en || item.label?.bn" class="event-tithi-chip" :title="item.label.bn || item.label.en">
-                      🌕 {{ item.label.en || item.label.bn }}
+                      {{ item.label.en || item.label.bn }}
                     </span>
                     <span class="event-slug-pill">/{{ item.slug }}</span>
                   </div>
@@ -2483,7 +2429,7 @@ const executeDeleteEvent = async () => {
                     title="Edit festival or event"
                     @click="openEditEventModal(item)"
                   >
-                    <span>✏️ Edit</span>
+                    <span>Edit</span>
                   </button>
                   <button
                     type="button"
@@ -2491,7 +2437,7 @@ const executeDeleteEvent = async () => {
                     title="Delete festival or event"
                     @click="confirmDeleteEvent(item)"
                   >
-                    <span>🗑️</span>
+                    <span>Delete</span>
                   </button>
                 </div>
               </div>
@@ -2513,7 +2459,7 @@ const executeDeleteEvent = async () => {
             </div>
             <div class="module-header-actions">
               <button type="button" class="btn-refresh" @click="fetchDeitiesData" title="Refresh deities list">
-                ↻ Refresh
+                Refresh
               </button>
               <button type="button" class="btn-add-primary" @click="openAddDeityModal">
                 <span>+ Add Deity Profile</span>
@@ -2524,7 +2470,6 @@ const executeDeleteEvent = async () => {
           <!-- Filters Bar -->
           <div class="filters-bar">
             <div class="search-box">
-              <span class="search-icon">🔍</span>
               <input
                 type="text"
                 v-model="deitySearchQuery"
@@ -2570,7 +2515,6 @@ const executeDeleteEvent = async () => {
             </div>
 
             <div v-else-if="filteredDeities.length === 0" class="empty-state">
-              <span class="empty-icon">🕉️</span>
               <h3 class="empty-title">No deities found</h3>
               <p class="empty-desc">
                 {{ deitySearchQuery ? 'No deities match your search filter.' : 'No deities have been configured yet.' }}
@@ -2619,7 +2563,7 @@ const executeDeleteEvent = async () => {
                     class="deity-avatar-img"
                   />
                   <div v-else class="deity-avatar-placeholder">
-                    <span>🕉️</span>
+                    <span>{{ item.name.en?.slice(0, 1) || 'D' }}</span>
                   </div>
                 </div>
 
@@ -2661,7 +2605,7 @@ const executeDeleteEvent = async () => {
                     title="Edit deity details"
                     @click="openEditDeityModal(item)"
                   >
-                    <span>✏️ Edit</span>
+                    <span>Edit</span>
                   </button>
                   <button
                     type="button"
@@ -2669,7 +2613,7 @@ const executeDeleteEvent = async () => {
                     title="Delete deity"
                     @click="confirmDeleteDeity(item)"
                   >
-                    <span>🗑️</span>
+                    <span>Delete</span>
                   </button>
                 </div>
               </div>
@@ -2691,7 +2635,7 @@ const executeDeleteEvent = async () => {
             </div>
             <div class="module-header-actions">
               <button type="button" class="btn-refresh" @click="fetchNoticesData" title="Refresh notices list">
-                ↻ Refresh
+                Refresh
               </button>
               <button type="button" class="btn-add-primary" @click="openAddNoticeModal">
                 <span>+ Publish Notice</span>
@@ -2702,7 +2646,6 @@ const executeDeleteEvent = async () => {
           <!-- Filters Bar -->
           <div class="filters-bar">
             <div class="search-box">
-              <span class="search-icon">🔍</span>
               <input
                 type="text"
                 v-model="noticeSearchQuery"
@@ -2727,7 +2670,7 @@ const executeDeleteEvent = async () => {
                 :class="{ 'filter-pill-active': noticeFilter === 'pinned' }"
                 @click="noticeFilter = 'pinned'"
               >
-                📌 Pinned ({{ pinnedNoticesCount }})
+                Pinned ({{ pinnedNoticesCount }})
               </button>
               <button
                 type="button"
@@ -2771,7 +2714,6 @@ const executeDeleteEvent = async () => {
             </div>
 
             <div v-else-if="filteredNotices.length === 0" class="empty-state">
-              <span class="empty-icon">📢</span>
               <h3 class="empty-title">No notices found</h3>
               <p class="empty-desc">
                 {{ noticeSearchQuery ? 'No notices match your search filter.' : 'No notices have been published yet.' }}
@@ -2790,9 +2732,9 @@ const executeDeleteEvent = async () => {
               >
                 <!-- Notice Date & Category Col -->
                 <div class="notice-meta-col">
-                  <span class="notice-date-badge">📅 {{ item.date }}</span>
+                  <span class="notice-date-badge">{{ item.date }}</span>
                   <span class="notice-cat-tag">{{ item.category }}</span>
-                  <span v-if="item.pinned" class="pinned-indicator-chip">📌 PINNED</span>
+                  <span v-if="item.pinned" class="pinned-indicator-chip">PINNED</span>
                 </div>
 
                 <!-- Notice Content Col -->
@@ -2816,7 +2758,7 @@ const executeDeleteEvent = async () => {
                     :title="item.pinned ? 'Click to unpin' : 'Click to pin to top of notice board'"
                     @click="toggleNoticePinnedStatus(item)"
                   >
-                    <span>{{ item.pinned ? '📌 Pinned' : '📍 Pin' }}</span>
+                    <span>{{ item.pinned ? 'Pinned' : 'Pin' }}</span>
                   </button>
 
                   <!-- Active Toggle -->
@@ -2843,7 +2785,7 @@ const executeDeleteEvent = async () => {
                     title="Edit notice"
                     @click="openEditNoticeModal(item)"
                   >
-                    <span>✏️ Edit</span>
+                    <span>Edit</span>
                   </button>
                   <button
                     type="button"
@@ -2851,7 +2793,7 @@ const executeDeleteEvent = async () => {
                     title="Delete notice"
                     @click="confirmDeleteNotice(item)"
                   >
-                    <span>🗑️</span>
+                    <span>Delete</span>
                   </button>
                 </div>
               </div>
@@ -2873,7 +2815,7 @@ const executeDeleteEvent = async () => {
             </div>
             <div class="module-header-actions">
               <button type="button" class="btn-refresh" @click="fetchBookingsData" title="Refresh bookings list">
-                ↻ Refresh
+                Refresh
               </button>
             </div>
           </div>
@@ -2881,7 +2823,6 @@ const executeDeleteEvent = async () => {
           <!-- Filters Bar -->
           <div class="filters-bar">
             <div class="search-box">
-              <span class="search-icon">🔍</span>
               <input
                 type="text"
                 v-model="bookingSearchQuery"
@@ -2906,7 +2847,7 @@ const executeDeleteEvent = async () => {
                 :class="{ 'filter-pill-active': bookingStatusFilter === 'new' }"
                 @click="bookingStatusFilter = 'new'"
               >
-                ⚡ New ({{ newBookingsCount }})
+                New ({{ newBookingsCount }})
               </button>
               <button
                 type="button"
@@ -2943,7 +2884,6 @@ const executeDeleteEvent = async () => {
             </div>
 
             <div v-else-if="filteredBookings.length === 0" class="empty-state">
-              <span class="empty-icon">📋</span>
               <h3 class="empty-title">No booking requests found</h3>
               <p class="empty-desc">
                 {{ bookingSearchQuery ? 'No booking records match your search filter.' : 'No devotee puja bookings in this category.' }}
@@ -2970,8 +2910,8 @@ const executeDeleteEvent = async () => {
                     <span v-if="item.gotra" class="devotee-gotra">Gotra: {{ item.gotra }}</span>
                   </div>
                   <div class="devotee-contact-row">
-                    <a :href="`tel:${item.phone}`" class="contact-link phone-link">📞 {{ item.phone }}</a>
-                    <a v-if="item.email" :href="`mailto:${item.email}`" class="contact-link email-link">✉️ {{ item.email }}</a>
+                    <a :href="`tel:${item.phone}`" class="contact-link phone-link">{{ item.phone }}</a>
+                    <a v-if="item.email" :href="`mailto:${item.email}`" class="contact-link email-link">{{ item.email }}</a>
                   </div>
                 </div>
 
@@ -2982,7 +2922,7 @@ const executeDeleteEvent = async () => {
                     <span v-if="item.pujaPrice" class="puja-booked-price">৳{{ item.pujaPrice }}</span>
                   </div>
                   <div class="preferred-date-chip">
-                    <span>📅 Preferred Date:</span>
+                    <span>Preferred Date:</span>
                     <strong>{{ item.preferredDate }}</strong>
                   </div>
                   <div v-if="item.note" class="devotee-note-box">
@@ -3011,7 +2951,7 @@ const executeDeleteEvent = async () => {
                     title="Confirm this booking request"
                     @click="changeBookingStatus(item, 'confirmed')"
                   >
-                    ✓ Confirm
+                    Confirm
                   </button>
 
                   <button
@@ -3021,7 +2961,7 @@ const executeDeleteEvent = async () => {
                     title="Mark ritual as completed"
                     @click="changeBookingStatus(item, 'completed')"
                   >
-                    ✓ Complete
+                    Complete
                   </button>
 
                   <button
@@ -3031,7 +2971,7 @@ const executeDeleteEvent = async () => {
                     title="Cancel booking"
                     @click="changeBookingStatus(item, 'cancelled')"
                   >
-                    ✕ Cancel
+                    Cancel
                   </button>
 
                   <!-- Internal Note Button -->
@@ -3041,7 +2981,7 @@ const executeDeleteEvent = async () => {
                     title="Add / edit priest admin note"
                     @click="openBookingNoteModal(item)"
                   >
-                    📝 Note
+                    Note
                   </button>
 
                   <!-- Delete (Admin) -->
@@ -3052,7 +2992,7 @@ const executeDeleteEvent = async () => {
                     title="Delete record"
                     @click="confirmDeleteBooking(item)"
                   >
-                    <span>🗑️</span>
+                    <span>Delete</span>
                   </button>
                 </div>
               </div>
@@ -3850,7 +3790,7 @@ const executeDeleteEvent = async () => {
                 <label class="checkbox-container">
                   <input type="checkbox" v-model="noticeForm.pinned" />
                   <span class="checkbox-label-text">
-                    {{ noticeForm.pinned ? '📌 Pinned Notice (Highlighted at top)' : 'Standard Notice' }}
+                    {{ noticeForm.pinned ? 'Pinned Notice (Highlighted at top)' : 'Standard Notice' }}
                   </span>
                 </label>
               </div>
@@ -4002,7 +3942,7 @@ const executeDeleteEvent = async () => {
                 :class="{ 'lang-tab-active': eventActiveTab === 'en' }"
                 @click="eventActiveTab = 'en'"
               >
-                <span>🇬🇧 English Details</span>
+                <span>English Details</span>
                 <span v-if="!eventForm.title.en" class="req-dot">*</span>
               </button>
               <button
@@ -4011,7 +3951,7 @@ const executeDeleteEvent = async () => {
                 :class="{ 'lang-tab-active': eventActiveTab === 'bn' }"
                 @click="eventActiveTab = 'bn'"
               >
-                <span>🇧🇩 বাংলা বিবরণ (Bengali)</span>
+                <span>বাংলা বিবরণ (Bengali)</span>
               </button>
             </div>
 
@@ -4109,10 +4049,10 @@ const executeDeleteEvent = async () => {
                   Event Category <span class="required-star">*</span>
                 </label>
                 <select v-model="eventForm.kind" class="form-input">
-                  <option value="festival">🎉 Festival (উৎসব)</option>
-                  <option value="special_puja">🪔 Special Puja (বিশেষ পূজা)</option>
-                  <option value="seva">🌿 Seva / Offering (সেবা)</option>
-                  <option value="other">📌 Other (অন্যান্য)</option>
+                  <option value="festival">Festival (উৎসব)</option>
+                  <option value="special_puja">Special Puja (বিশেষ পূজা)</option>
+                  <option value="seva">Seva / Offering (সেবা)</option>
+                  <option value="other">Other (অন্যান্য)</option>
                 </select>
               </div>
 
@@ -4661,19 +4601,25 @@ const executeDeleteEvent = async () => {
   gap: 0.85rem;
 }
 
-.topbar-icon-btn {
-  position: relative;
-  display: flex;
+.topbar-notifications-btn {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
   border-radius: var(--adm-radius-sm);
   background: var(--adm-surface);
   border: 1px solid var(--adm-border);
-  color: var(--adm-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--adm-text-main);
   cursor: pointer;
+  position: relative;
   transition: all 0.15s ease;
+}
+
+.topbar-notifications-btn:hover {
+  background: var(--adm-bg);
+  border-color: #cbd5e1;
 }
 
 .topbar-icon-btn:hover {
@@ -4906,10 +4852,9 @@ const executeDeleteEvent = async () => {
 
 .action-btn {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.45rem;
-  padding: 1.25rem 1rem;
+  justify-content: center;
+  padding: 0.9rem 1.15rem;
   background: var(--adm-bg);
   border: 1px solid var(--adm-border);
   border-radius: var(--adm-radius-sm);
@@ -4917,6 +4862,8 @@ const executeDeleteEvent = async () => {
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
+  text-align: center;
+  min-height: 48px;
   transition: all 0.15s ease;
 }
 
@@ -5117,7 +5064,7 @@ const executeDeleteEvent = async () => {
 
 .search-input {
   width: 100%;
-  padding: 0.5rem 2rem 0.5rem 2.2rem;
+  padding: 0.5rem 0.85rem;
   border-radius: var(--adm-radius-sm);
   background: var(--adm-surface);
   border: 1px solid var(--adm-border);
