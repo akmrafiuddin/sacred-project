@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted, watchEffect } from "vue";
+import { ref, reactive, computed, onMounted, watchEffect } from "vue";
 import { useAuth } from "~/composables/useAuth";
+import type { FormattedScheduleItem, NextAartiResult } from "~~/server/services/schedule";
 
 useHead({
   title: "Sanctum Dashboard - Temple Console",
 });
 
 const { isAuthenticated, isStaff, isAdmin, isEditor, currentUser, role, logout } = useAuth();
+const { $trpc } = useNuxtApp();
 
 // Route guard - only admin or editor can access /admin/**
 watchEffect(() => {
@@ -18,7 +20,7 @@ watchEffect(() => {
 });
 
 const isSidebarOpen = ref(false);
-const activeModule = ref("dashboard");
+const activeModule = ref<"dashboard" | "schedule">("dashboard");
 
 // Current date formatted
 const formattedDate = ref("");
@@ -34,13 +36,286 @@ onMounted(() => {
 
 // Admin Navigation Menu items
 const navItems = [
-  { id: "dashboard", label: "Dashboard Overview", badge: "Live", link: "/admin/dashboard" },
+  { id: "dashboard", label: "Dashboard Overview", icon: "📊", badge: "Live" },
+  { id: "schedule", label: "Daily Schedule", icon: "🔔", badge: "Rituals" },
 ];
 
+// =========================================================================
+// TOAST NOTIFICATIONS
+// =========================================================================
+const toast = reactive({
+  show: false,
+  message: "",
+  type: "success" as "success" | "error" | "info",
+});
+
+const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+  toast.message = message;
+  toast.type = type;
+  toast.show = true;
+  setTimeout(() => {
+    toast.show = false;
+  }, 4000);
+};
+
+// =========================================================================
+// DAILY SCHEDULE STATE & CRUD
+// =========================================================================
+const scheduleItems = ref<FormattedScheduleItem[]>([]);
+const nextAartiInfo = ref<NextAartiResult | null>(null);
+const loadingSchedule = ref(false);
+const searchQuery = ref("");
+const statusFilter = ref<"all" | "active" | "hidden">("all");
+
+// Fetch Schedule Items from backend (tRPC) and public schedule for Next Aarti
+const fetchScheduleData = async () => {
+  loadingSchedule.value = true;
+  try {
+    const res = await $trpc.schedule.list.query();
+    scheduleItems.value = res.items || [];
+
+    // Also fetch public calculation for next aarti
+    const pub = await $fetch<{ items: FormattedScheduleItem[]; nextAarti: NextAartiResult | null }>(
+      "/api/public/schedule"
+    ).catch(() => null);
+    if (pub) {
+      nextAartiInfo.value = pub.nextAarti;
+    }
+  } catch (err: any) {
+    console.error("Failed to load schedule:", err);
+    showToast(err?.message || "Failed to load schedule data", "error");
+  } finally {
+    loadingSchedule.value = false;
+  }
+};
+
+onMounted(() => {
+  fetchScheduleData();
+});
+
+// Filtered schedule list
+const filteredSchedule = computed(() => {
+  return scheduleItems.value.filter((item) => {
+    // 1. Status filter
+    if (statusFilter.value === "active" && !item.active) return false;
+    if (statusFilter.value === "hidden" && item.active) return false;
+
+    // 2. Search query
+    if (searchQuery.value.trim()) {
+      const q = searchQuery.value.trim().toLowerCase();
+      const matchTime = item.time.toLowerCase().includes(q);
+      const matchTitleEn = item.title.en.toLowerCase().includes(q);
+      const matchTitleBn = (item.title.bn || "").toLowerCase().includes(q);
+      const matchDescEn = (item.description.en || "").toLowerCase().includes(q);
+      const matchDescBn = (item.description.bn || "").toLowerCase().includes(q);
+      return matchTime || matchTitleEn || matchTitleBn || matchDescEn || matchDescBn;
+    }
+
+    return true;
+  });
+});
+
+// Stats computed
+const totalRitualsCount = computed(() => scheduleItems.value.length);
+const activeRitualsCount = computed(() => scheduleItems.value.filter((i) => i.active).length);
+const hiddenRitualsCount = computed(() => scheduleItems.value.filter((i) => !i.active).length);
+
+// Modal state
+const isModalOpen = ref(false);
+const isEditing = ref(false);
+const savingItem = ref(false);
+const currentEditingId = ref<number | null>(null);
+const activeLangTab = ref<"en" | "bn">("en");
+
+const itemForm = reactive({
+  time: "",
+  titleEn: "",
+  titleBn: "",
+  descEn: "",
+  descBn: "",
+  sortOrder: 0,
+  active: true,
+});
+
+const formErrors = reactive({
+  time: "",
+  titleEn: "",
+});
+
+// Presets for quick time picking
+const timePresets = ["05:00", "07:00", "12:30", "18:30", "21:30"];
+
+const openAddModal = () => {
+  isEditing.value = false;
+  currentEditingId.value = null;
+  itemForm.time = "";
+  itemForm.titleEn = "";
+  itemForm.titleBn = "";
+  itemForm.descEn = "";
+  itemForm.descBn = "";
+  itemForm.sortOrder = scheduleItems.value.length + 1;
+  itemForm.active = true;
+  formErrors.time = "";
+  formErrors.titleEn = "";
+  activeLangTab.value = "en";
+  isModalOpen.value = true;
+};
+
+const openEditModal = (item: FormattedScheduleItem) => {
+  isEditing.value = true;
+  currentEditingId.value = item.id;
+  itemForm.time = item.time;
+  itemForm.titleEn = item.title.en || "";
+  itemForm.titleBn = item.title.bn || "";
+  itemForm.descEn = item.description.en || "";
+  itemForm.descBn = item.description.bn || "";
+  itemForm.sortOrder = item.sortOrder;
+  itemForm.active = item.active;
+  formErrors.time = "";
+  formErrors.titleEn = "";
+  activeLangTab.value = "en";
+  isModalOpen.value = true;
+};
+
+const validateForm = () => {
+  let valid = true;
+  formErrors.time = "";
+  formErrors.titleEn = "";
+
+  // Validate 24h HH:mm format
+  const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
+  if (!itemForm.time || !timeRegex.test(itemForm.time)) {
+    formErrors.time = "Time must be in 24-hour HH:mm format (e.g. 05:00 or 18:30)";
+    valid = false;
+  }
+
+  if (!itemForm.titleEn.trim()) {
+    formErrors.titleEn = "English title is required";
+    valid = false;
+  }
+
+  return valid;
+};
+
+const saveScheduleItem = async () => {
+  if (!validateForm()) return;
+
+  savingItem.value = true;
+  try {
+    if (isEditing.value && currentEditingId.value !== null) {
+      // Update existing item
+      await $trpc.schedule.update.mutate({
+        id: currentEditingId.value,
+        time: itemForm.time,
+        title: { en: itemForm.titleEn.trim(), bn: itemForm.titleBn.trim() },
+        description: { en: itemForm.descEn.trim(), bn: itemForm.descBn.trim() },
+        sortOrder: itemForm.sortOrder,
+        active: itemForm.active,
+      });
+      showToast("Ritual updated successfully!");
+    } else {
+      // Create new item
+      await $trpc.schedule.create.mutate({
+        time: itemForm.time,
+        title: { en: itemForm.titleEn.trim(), bn: itemForm.titleBn.trim() },
+        description: { en: itemForm.descEn.trim(), bn: itemForm.descBn.trim() },
+        sortOrder: itemForm.sortOrder,
+        active: itemForm.active,
+      });
+      showToast("New ritual added to schedule!");
+    }
+
+    isModalOpen.value = false;
+    await fetchScheduleData();
+  } catch (err: any) {
+    console.error("Failed to save ritual:", err);
+    showToast(err?.message || "Failed to save ritual", "error");
+  } finally {
+    savingItem.value = false;
+  }
+};
+
+// Toggle active status directly
+const toggleActiveStatus = async (item: FormattedScheduleItem) => {
+  try {
+    const nextState = !item.active;
+    await $trpc.schedule.setActive.mutate({
+      id: item.id,
+      active: nextState,
+    });
+    item.active = nextState;
+    showToast(`'${item.title.en}' is now ${nextState ? 'Active' : 'Hidden'}`);
+    await fetchScheduleData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to toggle status", "error");
+  }
+};
+
+// Reorder item up or down
+const moveOrder = async (index: number, direction: "up" | "down") => {
+  const target = direction === "up" ? index - 1 : index + 1;
+  const list = [...filteredSchedule.value];
+  if (target < 0 || target >= list.length) return;
+
+  const current = list[index];
+  const other = list[target];
+  if (!current || !other) return;
+
+  const tempOrder = current.sortOrder;
+  current.sortOrder = other.sortOrder;
+  other.sortOrder = tempOrder;
+
+  try {
+    await $trpc.schedule.reorder.mutate({
+      items: [
+        { id: current.id, sortOrder: current.sortOrder },
+        { id: other.id, sortOrder: other.sortOrder },
+      ],
+    });
+    showToast("Schedule reordered successfully!");
+    await fetchScheduleData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to reorder", "error");
+  }
+};
+
+// Delete confirmation
+const deleteConfirmItem = ref<FormattedScheduleItem | null>(null);
+const deletingItem = ref(false);
+
+const confirmDelete = (item: FormattedScheduleItem) => {
+  deleteConfirmItem.value = item;
+};
+
+const executeDelete = async () => {
+  if (!deleteConfirmItem.value) return;
+
+  deletingItem.value = true;
+  try {
+    await $trpc.schedule.delete.mutate({ id: deleteConfirmItem.value.id });
+    showToast(`Deleted '${deleteConfirmItem.value.title.en}' successfully!`);
+    deleteConfirmItem.value = null;
+    await fetchScheduleData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to delete ritual", "error");
+  } finally {
+    deletingItem.value = false;
+  }
+};
 </script>
 
 <template>
   <div class="admin-layout">
+    <!-- TOAST NOTIFICATION -->
+    <transition name="toast-fade">
+      <div v-if="toast.show" class="admin-toast" :class="`toast-${toast.type}`">
+        <span class="toast-icon">
+          {{ toast.type === 'success' ? '✓' : toast.type === 'error' ? '✕' : 'ℹ' }}
+        </span>
+        <span class="toast-msg">{{ toast.message }}</span>
+      </div>
+    </transition>
+
     <!-- MOBILE SIDEBAR BACKDROP -->
     <div
       v-if="isSidebarOpen"
@@ -63,8 +338,8 @@ const navItems = [
             </svg>
           </div>
           <div class="logo-text">
-            <span class="brand-title">TEMPLE</span>
-            <span class="brand-tag">Super Admin</span>
+            <span class="brand-title">SANCTUM</span>
+            <span class="brand-tag">{{ isAdmin ? 'Super Admin' : 'Content Editor' }}</span>
           </div>
         </NuxtLink>
 
@@ -81,25 +356,16 @@ const navItems = [
 
       <!-- Navigation Links -->
       <nav class="sidebar-nav" aria-label="Admin Navigation">
+        <div class="nav-group-title">Console Navigation</div>
         <ul class="nav-list">
           <li v-for="item in navItems" :key="item.id">
-            <NuxtLink
-              v-if="item.link"
-              :to="item.link"
-              class="nav-item-btn"
-              :class="{ 'item-active': activeModule === item.id }"
-              @click="isSidebarOpen = false"
-            >
-              <span class="item-label">{{ item.label }}</span>
-              <span v-if="item.badge" class="item-badge">{{ item.badge }}</span>
-            </NuxtLink>
             <button
-              v-else
               type="button"
               class="nav-item-btn"
               :class="{ 'item-active': activeModule === item.id }"
-              @click="activeModule = item.id; isSidebarOpen = false"
+              @click="activeModule = item.id as any; isSidebarOpen = false"
             >
+              <span class="item-icon">{{ item.icon }}</span>
               <span class="item-label">{{ item.label }}</span>
               <span v-if="item.badge" class="item-badge">{{ item.badge }}</span>
             </button>
@@ -152,7 +418,9 @@ const navItems = [
           <div class="breadcrumb">
             <span class="crumb-root">Sanctum Console</span>
             <span class="crumb-sep">/</span>
-            <span class="crumb-active">Overview Dashboard</span>
+            <span class="crumb-active">
+              {{ activeModule === 'dashboard' ? 'Overview Dashboard' : 'Daily Schedule' }}
+            </span>
           </div>
         </div>
 
@@ -180,33 +448,492 @@ const navItems = [
 
       <!-- DASHBOARD BODY -->
       <main class="dashboard-body">
-        <!-- Welcome Greeting Banner -->
-        <div class="welcome-banner">
-          <div class="welcome-text">
-            <h1 class="welcome-heading">Super Administrator</h1>
-            <p class="welcome-sub">
-              {{ formattedDate }}
-            </p>
+        <!-- =============================================================== -->
+        <!-- TAB 1: OVERVIEW DASHBOARD                                       -->
+        <!-- =============================================================== -->
+        <div v-if="activeModule === 'dashboard'" class="tab-pane">
+          <!-- Welcome Greeting Banner -->
+          <div class="welcome-banner">
+            <div class="welcome-text">
+              <span class="welcome-badge">MANDIR CONSOLE</span>
+              <h1 class="welcome-heading">Welcome, {{ currentUser?.name || 'Administrator' }}</h1>
+              <p class="welcome-sub">{{ formattedDate }} • Golpahar Mohashoshan Kali Mandir Portal</p>
+            </div>
+          </div>
+
+          <!-- KPI Grid -->
+          <div class="kpi-grid">
+            <div class="kpi-card" @click="activeModule = 'schedule'">
+              <div class="kpi-icon-wrap gold-icon">🔔</div>
+              <div class="kpi-content">
+                <span class="kpi-label">Daily Aartis & Pujas</span>
+                <span class="kpi-val">{{ totalRitualsCount }}</span>
+                <span class="kpi-trend">
+                  <span class="trend-up">{{ activeRitualsCount }} Active</span> • {{ hiddenRitualsCount }} Hidden
+                </span>
+              </div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-icon-wrap blue-icon">⏱️</div>
+              <div class="kpi-content">
+                <span class="kpi-label">Dhaka Time & Next Aarti</span>
+                <span class="kpi-val text-sm font-bold text-accent">
+                  {{ nextAartiInfo ? nextAartiInfo.item.title.en : 'Computing...' }}
+                </span>
+                <span class="kpi-trend">
+                  {{ nextAartiInfo ? `${nextAartiInfo.item.time} (${nextAartiInfo.isTomorrow ? 'Tomorrow' : 'Today'})` : 'Synchronized' }}
+                </span>
+              </div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-icon-wrap green-icon">🛡️</div>
+              <div class="kpi-content">
+                <span class="kpi-label">Backend Architecture</span>
+                <span class="kpi-val">D1 + R2</span>
+                <span class="kpi-trend text-green-400">tRPC & Cache Active</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Navigation Panel -->
+          <div class="dash-panel">
+            <div class="panel-head">
+              <h2 class="panel-title">Sanctum Operations</h2>
+              <span class="panel-tag">Quick Actions</span>
+            </div>
+            <div class="quick-actions-grid">
+              <button type="button" class="action-btn" @click="activeModule = 'schedule'">
+                <span class="action-btn-icon">🔔</span>
+                <span>Manage Daily Schedule</span>
+              </button>
+              <button type="button" class="action-btn" @click="openAddModal">
+                <span class="action-btn-icon">➕</span>
+                <span>Add New Daily Ritual</span>
+              </button>
+            </div>
           </div>
         </div>
 
+        <!-- =============================================================== -->
+        <!-- TAB 2: DAILY SCHEDULE CRUD MANAGER                              -->
+        <!-- =============================================================== -->
+        <div v-else-if="activeModule === 'schedule'" class="tab-pane">
+          <!-- Module Header -->
+          <div class="module-header-row">
+            <div>
+              <h1 class="module-title">Daily Aarti & Puja Schedule</h1>
+              <p class="module-subtitle">
+                Manage sacred ritual timings. The Next Aarti badge on the public home page is dynamically calculated from these entries.
+              </p>
+            </div>
+            <div class="module-header-actions">
+              <button type="button" class="btn-refresh" @click="fetchScheduleData" title="Refresh schedule">
+                ↻ Refresh
+              </button>
+              <button type="button" class="btn-add-primary" @click="openAddModal">
+                <span>+ Add Aarti / Ritual</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Live Next Aarti Banner -->
+          <div v-if="nextAartiInfo" class="next-aarti-banner">
+            <div class="aarti-banner-left">
+              <span class="aarti-live-dot"></span>
+              <div>
+                <span class="aarti-banner-tag">NEXT UPCOMING AARTI</span>
+                <h3 class="aarti-banner-title">
+                  {{ nextAartiInfo.item.title.en }}
+                  <span class="aarti-time-chip">{{ nextAartiInfo.item.time }}</span>
+                </h3>
+              </div>
+            </div>
+            <div class="aarti-banner-right">
+              <span class="aarti-badge-day" :class="nextAartiInfo.isTomorrow ? 'badge-tomorrow' : 'badge-today'">
+                {{ nextAartiInfo.isTomorrow ? 'Scheduled for Tomorrow' : 'Today in Chittagong' }}
+              </span>
+              <span class="aarti-dhaka-clock">Dhaka Time: {{ nextAartiInfo.timeInDhaka }}</span>
+            </div>
+          </div>
+
+          <!-- Search & Filter Controls -->
+          <div class="filters-bar">
+            <div class="search-box">
+              <span class="search-icon">🔍</span>
+              <input
+                type="text"
+                v-model="searchQuery"
+                class="search-input"
+                placeholder="Search rituals by time, title, or description..."
+              />
+              <button v-if="searchQuery" class="clear-search-btn" @click="searchQuery = ''">&times;</button>
+            </div>
+
+            <div class="filter-pills">
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': statusFilter === 'all' }"
+                @click="statusFilter = 'all'"
+              >
+                All ({{ totalRitualsCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': statusFilter === 'active' }"
+                @click="statusFilter = 'active'"
+              >
+                Active ({{ activeRitualsCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': statusFilter === 'hidden' }"
+                @click="statusFilter = 'hidden'"
+              >
+                Hidden ({{ hiddenRitualsCount }})
+              </button>
+            </div>
+          </div>
+
+          <!-- Schedule Table / Card List -->
+          <div class="schedule-table-card">
+            <div v-if="loadingSchedule" class="loading-state">
+              <div class="spinner"></div>
+              <span>Loading daily rituals from Sanctum database...</span>
+            </div>
+
+            <div v-else-if="filteredSchedule.length === 0" class="empty-state">
+              <span class="empty-icon">🪔</span>
+              <h3 class="empty-title">No rituals found</h3>
+              <p class="empty-desc">
+                {{ searchQuery ? 'No rituals match your search filter.' : 'No daily schedule items have been added yet.' }}
+              </p>
+              <button type="button" class="btn-add-primary" @click="openAddModal">
+                <span>+ Add First Ritual</span>
+              </button>
+            </div>
+
+            <div v-else class="ritual-items-list">
+              <div
+                v-for="(item, idx) in filteredSchedule"
+                :key="item.id"
+                class="schedule-row-item"
+                :class="{ 'item-inactive': !item.active }"
+              >
+                <!-- Reorder Controls -->
+                <div class="reorder-col">
+                  <button
+                    type="button"
+                    class="btn-reorder"
+                    :disabled="idx === 0"
+                    title="Move earlier"
+                    @click="moveOrder(idx, 'up')"
+                  >
+                    ▲
+                  </button>
+                  <span class="sort-order-num">{{ item.sortOrder }}</span>
+                  <button
+                    type="button"
+                    class="btn-reorder"
+                    :disabled="idx === filteredSchedule.length - 1"
+                    title="Move later"
+                    @click="moveOrder(idx, 'down')"
+                  >
+                    ▼
+                  </button>
+                </div>
+
+                <!-- Time Pill -->
+                <div class="time-col">
+                  <div class="ritual-time-badge">
+                    <span class="clock-icon">🕒</span>
+                    <span class="time-text">{{ item.time }}</span>
+                  </div>
+                </div>
+
+                <!-- Ritual Details (Bilingual) -->
+                <div class="details-col">
+                  <div class="title-row">
+                    <h3 class="ritual-title-en">{{ item.title.en }}</h3>
+                    <span v-if="item.title.bn" class="ritual-title-bn">{{ item.title.bn }}</span>
+                  </div>
+                  <p class="ritual-desc-en">{{ item.description.en || 'No English description provided.' }}</p>
+                  <p v-if="item.description.bn" class="ritual-desc-bn">{{ item.description.bn }}</p>
+                </div>
+
+                <!-- Active Toggle -->
+                <div class="toggle-col">
+                  <label class="switch-toggle" :title="item.active ? 'Click to hide from public' : 'Click to make active'">
+                    <input
+                      type="checkbox"
+                      :checked="item.active"
+                      @change="toggleActiveStatus(item)"
+                    />
+                    <span class="switch-slider round"></span>
+                  </label>
+                  <span class="status-caption" :class="item.active ? 'caption-active' : 'caption-hidden'">
+                    {{ item.active ? 'Active' : 'Hidden' }}
+                  </span>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="actions-col">
+                  <button
+                    type="button"
+                    class="btn-action-edit"
+                    title="Edit ritual"
+                    @click="openEditModal(item)"
+                  >
+                    <span>✏️ Edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-action-del"
+                    title="Delete ritual"
+                    @click="confirmDelete(item)"
+                  >
+                    <span>🗑️</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- ADD / EDIT RITUAL MODAL DIALOG                                      -->
+    <!-- =================================================================== -->
+    <div v-if="isModalOpen" class="modal-backdrop" @click.self="isModalOpen = false">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-tag">{{ isEditing ? 'EDIT RITUAL' : 'NEW RITUAL' }}</span>
+            <h2 class="modal-title">{{ isEditing ? 'Edit Daily Aarti / Ritual' : 'Add New Aarti / Ritual' }}</h2>
+          </div>
+          <button type="button" class="modal-close-btn" @click="isModalOpen = false">&times;</button>
+        </div>
+
+        <form @submit.prevent="saveScheduleItem" class="modal-form">
+          <div class="modal-body">
+            <!-- 1. TIME PICKER & PRESETS -->
+            <div class="form-group">
+              <label class="form-label">
+                Ritual Timing (24-Hour HH:mm) <span class="required-star">*</span>
+              </label>
+              <div class="time-input-wrap">
+                <input
+                  type="text"
+                  v-model="itemForm.time"
+                  class="form-input font-mono"
+                  placeholder="e.g. 05:00 or 18:30"
+                  maxlength="5"
+                />
+              </div>
+              <span v-if="formErrors.time" class="error-msg">{{ formErrors.time }}</span>
+
+              <!-- Quick Time Preset Chips -->
+              <div class="time-presets-row">
+                <span class="preset-label">Quick Presets:</span>
+                <button
+                  v-for="preset in timePresets"
+                  :key="preset"
+                  type="button"
+                  class="preset-chip"
+                  @click="itemForm.time = preset; formErrors.time = ''"
+                >
+                  {{ preset }}
+                </button>
+              </div>
+            </div>
+
+            <!-- 2. BILINGUAL CONTENT TABS -->
+            <div class="lang-tabs-nav">
+              <button
+                type="button"
+                class="lang-tab-pill"
+                :class="{ 'lang-tab-active': activeLangTab === 'en' }"
+                @click="activeLangTab = 'en'"
+              >
+                <span>English</span>
+                <span class="lang-req-dot" title="Required">*</span>
+              </button>
+              <button
+                type="button"
+                class="lang-tab-pill"
+                :class="{ 'lang-tab-active': activeLangTab === 'bn' }"
+                @click="activeLangTab = 'bn'"
+              >
+                <span>বাংলা (Bengali)</span>
+                <span class="lang-opt-badge">Optional</span>
+              </button>
+            </div>
+
+            <!-- English Fields -->
+            <div v-show="activeLangTab === 'en'" class="lang-fields-box">
+              <div class="form-group">
+                <label class="form-label">Ritual Title (English) <span class="required-star">*</span></label>
+                <input
+                  type="text"
+                  v-model="itemForm.titleEn"
+                  class="form-input"
+                  placeholder="e.g. Mangala Aarti, Bhog Offering, Sandhya Aarti"
+                />
+                <span v-if="formErrors.titleEn" class="error-msg">{{ formErrors.titleEn }}</span>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Description (English)</label>
+                <textarea
+                  v-model="itemForm.descEn"
+                  class="form-textarea"
+                  rows="3"
+                  placeholder="Brief description of the ritual offering, bells, or darshan..."
+                ></textarea>
+              </div>
+            </div>
+
+            <!-- Bengali Fields -->
+            <div v-show="activeLangTab === 'bn'" class="lang-fields-box">
+              <div class="form-group">
+                <label class="form-label">Ritual Title (বাংলা)</label>
+                <input
+                  type="text"
+                  v-model="itemForm.titleBn"
+                  class="form-input"
+                  placeholder="যেমন: মঙ্গলারতি, ভোগ আরতি, সন্ধ্যারতি"
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Description (বাংলা)</label>
+                <textarea
+                  v-model="itemForm.descBn"
+                  class="form-textarea"
+                  rows="3"
+                  placeholder="পূজা ও আরতির বর্ণনা..."
+                ></textarea>
+              </div>
+            </div>
+
+            <!-- 3. SORT ORDER & ACTIVE STATUS -->
+            <div class="form-row-2">
+              <div class="form-group flex-1">
+                <label class="form-label">Display Order</label>
+                <input
+                  type="number"
+                  v-model.number="itemForm.sortOrder"
+                  class="form-input"
+                  min="0"
+                />
+                <span class="hint-text">Lower numbers appear first in the schedule flow</span>
+              </div>
+
+              <div class="form-group flex-1 checkbox-group">
+                <label class="form-label">Visibility Status</label>
+                <label class="checkbox-container">
+                  <input type="checkbox" v-model="itemForm.active" />
+                  <span class="checkbox-label-text">
+                    {{ itemForm.active ? 'Active (Visible on public portal)' : 'Hidden (Draft only)' }}
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-cancel" @click="isModalOpen = false">Cancel</button>
+            <button type="submit" class="btn-save" :disabled="savingItem">
+              <span>{{ savingItem ? 'Saving...' : isEditing ? 'Update Ritual' : 'Save Ritual' }}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- DELETE CONFIRMATION MODAL                                           -->
+    <!-- =================================================================== -->
+    <div v-if="deleteConfirmItem" class="modal-backdrop" @click.self="deleteConfirmItem = null">
+      <div class="modal-dialog modal-dialog-sm">
+        <div class="modal-header">
+          <h2 class="modal-title text-red-500">Confirm Deletion</h2>
+          <button type="button" class="modal-close-btn" @click="deleteConfirmItem = null">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="confirm-text">
+            Are you sure you want to delete <strong>{{ deleteConfirmItem.title.en }}</strong> ({{ deleteConfirmItem.time }})?
+          </p>
+          <p class="confirm-warning">
+            This will permanently remove this ritual from the temple daily schedule and audit logs will be updated.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-cancel" @click="deleteConfirmItem = null">Cancel</button>
+          <button
+            type="button"
+            class="btn-delete-confirm"
+            :disabled="deletingItem"
+            @click="executeDelete"
+          >
+            <span>{{ deletingItem ? 'Deleting...' : 'Yes, Delete' }}</span>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+/* ====================================================
+   BASE LAYOUT
+   ==================================================== */
 .admin-layout {
   display: flex;
   min-height: 100vh;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   position: relative;
+  font-family: inherit;
 }
 
-/* ====================================================
-   1. SIDEBAR
-   ==================================================== */
+/* Toast */
+.admin-toast {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.85rem 1.25rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+}
+
+.toast-success { background: #15803d; color: #fff; }
+.toast-error { background: #b91c1c; color: #fff; }
+.toast-info { background: #1d4ed8; color: #fff; }
+
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition: all 0.25s ease;
+}
+
+.toast-fade-enter-from,
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* Sidebar */
 .admin-sidebar {
   width: 280px;
   background-color: var(--bg-secondary);
@@ -223,13 +950,8 @@ const navItems = [
 }
 
 @media (max-width: 1024px) {
-  .admin-sidebar {
-    transform: translateX(-100%);
-  }
-
-  .admin-sidebar.sidebar-open {
-    transform: translateX(0);
-  }
+  .admin-sidebar { transform: translateX(-100%); }
+  .admin-sidebar.sidebar-open { transform: translateX(0); }
 }
 
 .sidebar-backdrop {
@@ -256,21 +978,10 @@ const navItems = [
   text-decoration: none;
 }
 
-.logo-mark {
-  width: 32px;
-  height: 32px;
-}
+.logo-mark { width: 32px; height: 32px; }
+.temple-svg-icon { width: 100%; height: 100%; }
 
-.temple-svg-icon {
-  width: 100%;
-  height: 100%;
-}
-
-.logo-text {
-  display: flex;
-  flex-direction: column;
-}
-
+.logo-text { display: flex; flex-direction: column; }
 .brand-title {
   font-size: 1.1rem;
   font-weight: 800;
@@ -297,16 +1008,22 @@ const navItems = [
 }
 
 @media (max-width: 1024px) {
-  .mobile-close-btn {
-    display: block;
-  }
+  .mobile-close-btn { display: block; }
 }
 
-/* Sidebar Nav */
 .sidebar-nav {
   flex: 1;
   padding: 1.5rem 1rem;
   overflow-y: auto;
+}
+
+.nav-group-title {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 0 0.85rem 0.5rem;
 }
 
 .nav-list {
@@ -332,7 +1049,6 @@ const navItems = [
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
-  font-family: inherit;
   text-align: left;
 }
 
@@ -348,14 +1064,8 @@ const navItems = [
   font-weight: 700;
 }
 
-.item-icon {
-  font-size: 1.1rem;
-}
-
-.item-label {
-  flex: 1;
-}
-
+.item-icon { font-size: 1.1rem; }
+.item-label { flex: 1; }
 .item-badge {
   font-size: 0.725rem;
   font-weight: 700;
@@ -367,47 +1077,21 @@ const navItems = [
 
 .item-active .item-badge {
   background: var(--accent);
-  color: var(--btn-cta-text, #3F0A12);
+  color: #160B0C;
 }
 
-/* User Footer in Sidebar */
+/* User footer in sidebar */
 .sidebar-user-footer {
-  padding: 1.25rem 1.25rem;
+  padding: 1.25rem;
   border-top: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.user-avatar {
-  font-size: 1.4rem;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: var(--accent-glow);
-  border: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.user-details {
-  display: flex;
-  flex-direction: column;
-}
-
-.user-name {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
+.user-info { display: flex; align-items: center; gap: 0.75rem; }
+.user-details { display: flex; flex-direction: column; }
+.user-name { font-size: 0.875rem; font-weight: 700; color: var(--text-primary); }
 .user-role-badge {
   font-size: 0.65rem;
   font-weight: 700;
@@ -418,25 +1102,8 @@ const navItems = [
   width: fit-content;
   margin-top: 0.2rem;
 }
-
-.role-admin {
-  background: rgba(245, 158, 11, 0.15);
-  color: var(--accent-text);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-}
-
-.role-editor {
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-.user-role {
-  font-size: 0.7rem;
-  font-weight: 800;
-  color: var(--accent-text);
-  letter-spacing: 0.06em;
-}
+.role-admin { background: rgba(245, 158, 11, 0.15); color: var(--accent); border: 1px solid rgba(245, 158, 11, 0.3); }
+.role-editor { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
 
 .btn-logout {
   width: 100%;
@@ -453,12 +1120,6 @@ const navItems = [
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-family: inherit;
-}
-
-.logout-icon {
-  width: 16px;
-  height: 16px;
 }
 
 .btn-logout:hover {
@@ -467,9 +1128,9 @@ const navItems = [
   color: #f87171;
 }
 
-/* ====================================================
-   2. MAIN WRAPPER & TOPBAR
-   ==================================================== */
+.logout-icon { width: 16px; height: 16px; }
+
+/* Main Wrapper */
 .admin-main-wrapper {
   flex: 1;
   display: flex;
@@ -479,9 +1140,7 @@ const navItems = [
 }
 
 @media (max-width: 1024px) {
-  .admin-main-wrapper {
-    margin-left: 0;
-  }
+  .admin-main-wrapper { margin-left: 0; }
 }
 
 .admin-topbar {
@@ -497,12 +1156,7 @@ const navItems = [
   z-index: 50;
 }
 
-.topbar-left {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
+.topbar-left { display: flex; align-items: center; gap: 1rem; }
 .hamburger-btn {
   display: none;
   background: transparent;
@@ -511,44 +1165,18 @@ const navItems = [
   cursor: pointer;
   padding: 0.25rem;
 }
-
-.hamburger-btn svg {
-  width: 22px;
-  height: 22px;
-}
+.hamburger-btn svg { width: 22px; height: 22px; }
 
 @media (max-width: 1024px) {
-  .hamburger-btn {
-    display: block;
-  }
+  .hamburger-btn { display: block; }
 }
 
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-}
+.breadcrumb { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
+.crumb-root { color: var(--text-muted); }
+.crumb-sep { color: var(--text-muted); opacity: 0.5; }
+.crumb-active { font-weight: 700; color: var(--text-primary); }
 
-.crumb-root {
-  color: var(--text-muted);
-}
-
-.crumb-sep {
-  color: var(--text-muted);
-  opacity: 0.5;
-}
-
-.crumb-active {
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
+.topbar-right { display: flex; align-items: center; gap: 1rem; }
 
 .status-pill {
   display: inline-flex;
@@ -568,13 +1196,6 @@ const navItems = [
   height: 6px;
   border-radius: 50%;
   background: #22c55e;
-  animation: pulseDot 2s infinite;
-}
-
-@keyframes pulseDot {
-  0% { transform: scale(0.9); opacity: 0.7; }
-  50% { transform: scale(1.3); opacity: 1; }
-  100% { transform: scale(0.9); opacity: 0.7; }
 }
 
 .btn-live-site {
@@ -592,29 +1213,17 @@ const navItems = [
   transition: all 0.15s ease;
 }
 
-.btn-live-site:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-}
+.btn-live-site:hover { color: var(--accent); border-color: var(--accent); }
+.link-arrow { width: 14px; height: 14px; }
 
-.link-arrow {
-  width: 14px;
-  height: 14px;
-}
-
-/* ====================================================
-   3. DASHBOARD BODY & KPI
-   ==================================================== */
+/* Dashboard Body */
 .dashboard-body {
   padding: 2.25rem 2rem 4rem;
   max-width: 1300px;
   width: 100%;
 }
 
-.welcome-banner {
-  margin-bottom: 2.25rem;
-}
-
+.welcome-banner { margin-bottom: 2.25rem; }
 .welcome-badge {
   font-size: 0.725rem;
   font-weight: 800;
@@ -631,10 +1240,7 @@ const navItems = [
   margin: 0.35rem 0 0.45rem;
 }
 
-.welcome-sub {
-  font-size: 0.925rem;
-  color: var(--text-secondary);
-}
+.welcome-sub { font-size: 0.925rem; color: var(--text-secondary); }
 
 /* KPI Grid */
 .kpi-grid {
@@ -652,6 +1258,7 @@ const navItems = [
   display: flex;
   align-items: flex-start;
   gap: 1rem;
+  cursor: pointer;
   transition: all 0.2s ease;
 }
 
@@ -671,77 +1278,15 @@ const navItems = [
   flex-shrink: 0;
 }
 
-.gold-icon {
-  background: var(--accent-glow);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-}
+.gold-icon { background: var(--accent-glow); border: 1px solid rgba(245, 158, 11, 0.3); }
+.blue-icon { background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); }
+.green-icon { background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.3); }
 
-.blue-icon {
-  background: rgba(59, 130, 246, 0.12);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-.green-icon {
-  background: rgba(34, 197, 94, 0.12);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
-
-.purple-icon {
-  background: rgba(168, 85, 247, 0.12);
-  border: 1px solid rgba(168, 85, 247, 0.3);
-}
-
-.kpi-content {
-  display: flex;
-  flex-direction: column;
-}
-
-.kpi-label {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-}
-
-.kpi-val {
-  font-size: 1.6rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  line-height: 1.1;
-  margin-bottom: 0.35rem;
-}
-
-.kpi-trend {
-  font-size: 0.775rem;
-  color: var(--text-muted);
-}
-
-.trend-up {
-  color: #22c55e;
-  font-weight: 700;
-}
-
-/* ====================================================
-   4. OPERATIONS LAYOUT & PANELS
-   ==================================================== */
-.ops-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 2rem;
-}
-
-@media (min-width: 1080px) {
-  .ops-grid {
-    grid-template-columns: 1.6fr 1fr;
-  }
-}
-
-.ops-left,
-.ops-right {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
+.kpi-content { display: flex; flex-direction: column; }
+.kpi-label { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; margin-bottom: 0.25rem; }
+.kpi-val { font-size: 1.45rem; font-weight: 800; color: var(--text-primary); line-height: 1.1; margin-bottom: 0.35rem; }
+.kpi-trend { font-size: 0.775rem; color: var(--text-muted); }
+.trend-up { color: #22c55e; font-weight: 700; }
 
 .dash-panel {
   background-color: var(--bg-card);
@@ -750,281 +1295,828 @@ const navItems = [
   padding: 1.75rem;
 }
 
-.panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.25rem;
-}
+.panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+.panel-title { font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin: 0; }
+.panel-tag { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: var(--accent-glow); padding: 0.25rem 0.65rem; border-radius: 9999px; }
 
-.panel-title {
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.panel-tag {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--accent);
-  background: var(--accent-glow);
-  padding: 0.25rem 0.65rem;
-  border-radius: 9999px;
-}
-
-/* Ritual Rows */
-.ritual-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.ritual-row {
-  display: grid;
-  grid-template-columns: 85px 1fr auto;
-  gap: 1rem;
-  align-items: center;
-  padding: 0.85rem 1rem;
-  border-radius: 12px;
-  background: var(--action-btn-bg);
-  border: 1px solid transparent;
-}
-
-.ritual-row.ritual-active {
-  border-color: rgba(245, 158, 11, 0.4);
-  background: var(--accent-glow);
-}
-
-.r-time {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-
-.r-name {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.r-badge {
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 0.25rem 0.65rem;
-  border-radius: 9999px;
-}
-
-.badge-done {
-  background: rgba(34, 197, 94, 0.12);
-  color: #22c55e;
-}
-
-.badge-next {
-  background: var(--accent);
-  color: var(--btn-cta-text, #3F0A12);
-  font-weight: 800;
-  animation: pulsePill 2s infinite;
-}
-
-@keyframes pulsePill {
-  0% { opacity: 0.9; }
-  50% { opacity: 1; }
-  100% { opacity: 0.9; }
-}
-
-.badge-scheduled {
-  background: var(--action-btn-bg);
-  color: var(--text-muted);
-}
-
-/* Activity Table */
-.activity-table-wrap {
-  overflow-x: auto;
-}
-
-.activity-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
-  text-align: left;
-}
-
-.activity-table th {
-  padding: 0.75rem 0.75rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.activity-table td {
-  padding: 0.95rem 0.75rem;
-  border-bottom: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-}
-
-.devotee-cell {
-  display: flex;
-  flex-direction: column;
-}
-
-.d-name {
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.d-gotra {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-.amount-cell {
-  font-weight: 700;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-
-.status-tag {
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 0.2rem 0.55rem;
-  border-radius: 9999px;
-}
-
-.tag-success {
-  background: rgba(34, 197, 94, 0.12);
-  color: #22c55e;
-}
-
-/* Quick Actions Grid */
 .quick-actions-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
 }
 
 .action-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 0.5rem;
-  padding: 1.25rem 0.75rem;
+  padding: 1.5rem 1rem;
   background: var(--action-btn-bg);
   border: 1px solid var(--border-color);
   border-radius: 14px;
   color: var(--text-primary);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 700;
-  text-decoration: none;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-family: inherit;
 }
 
 .action-btn:hover {
   border-color: var(--accent);
   background: var(--accent-glow);
-  color: var(--accent-light);
   transform: translateY(-2px);
 }
 
-.action-btn-icon {
-  font-size: 1.4rem;
-}
+.action-btn-icon { font-size: 1.6rem; }
 
-/* Roadmap Box */
-.roadmap-panel {
-  background: var(--bg-card);
-  border-color: rgba(245, 158, 11, 0.3);
-}
-
-.roadmap-badge {
-  display: inline-block;
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: var(--accent);
-  margin-bottom: 0.45rem;
-}
-
-.roadmap-title {
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
-}
-
-.roadmap-desc {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  line-height: 1.55;
-  margin-bottom: 1.25rem;
-}
-
-.roadmap-features {
+/* ====================================================
+   DAILY SCHEDULE CRUD MODULE STYLES
+   ==================================================== */
+.module-header-row {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
 }
 
-.feature-item {
+.module-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.35rem;
+}
+
+.module-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 650px;
+  line-height: 1.5;
+}
+
+.module-header-actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.825rem;
-  color: var(--text-primary);
-}
-
-.check-mark {
-  color: var(--accent);
-  font-weight: 800;
-}
-
-/* System Health */
-.health-list {
-  display: flex;
-  flex-direction: column;
   gap: 0.75rem;
+  flex-shrink: 0;
 }
 
-.health-item {
+.btn-refresh {
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  background: var(--action-btn-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-refresh:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-add-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #160B0C;
+  font-size: 0.875rem;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(224, 165, 38, 0.25);
+  transition: all 0.15s ease;
+}
+
+.btn-add-primary:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+/* Next Aarti Banner */
+.next-aarti-banner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  padding: 0.45rem 0;
-  border-bottom: 1px solid var(--border-subtle);
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgba(224, 165, 38, 0.12) 0%, rgba(153, 27, 27, 0.15) 100%);
+  border: 1px solid rgba(224, 165, 38, 0.3);
+  margin-bottom: 1.5rem;
 }
 
-.health-badge {
-  font-size: 0.725rem;
+.aarti-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.aarti-live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}
+
+.aarti-banner-tag {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.aarti-banner-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin: 0.15rem 0 0;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.aarti-time-chip {
+  font-size: 0.8rem;
+  font-weight: 800;
+  background: var(--accent);
+  color: #160B0C;
+  padding: 0.15rem 0.55rem;
+  border-radius: 9999px;
+  font-family: monospace;
+}
+
+.aarti-banner-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.aarti-badge-day {
+  font-size: 0.75rem;
   font-weight: 700;
-  padding: 0.2rem 0.55rem;
+  padding: 0.2rem 0.65rem;
   border-radius: 9999px;
 }
 
-.badge-green {
-  background: rgba(34, 197, 94, 0.12);
-  color: #22c55e;
+.badge-today { background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
+.badge-tomorrow { background: rgba(224, 165, 38, 0.15); color: var(--accent); border: 1px solid rgba(224, 165, 38, 0.3); }
+
+.aarti-dhaka-clock {
+  font-size: 0.775rem;
+  color: var(--text-muted);
+  font-family: monospace;
 }
 
+/* Filters Bar */
+.filters-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.search-box {
+  position: relative;
+  flex: 1;
+  min-width: 260px;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 0.85rem;
+  font-size: 0.85rem;
+  opacity: 0.6;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.65rem 2.25rem 0.65rem 2.4rem;
+  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.search-input:focus {
+  border-color: var(--accent);
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: 0.75rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.filter-pills {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.filter-pill {
+  padding: 0.45rem 0.95rem;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.825rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filter-pill:hover {
+  border-color: var(--accent);
+}
+
+.filter-pill-active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Schedule Table Card */
+.schedule-table-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.ritual-items-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.schedule-row-item {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.15rem 1.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 0.15s ease;
+}
+
+.schedule-row-item:last-child {
+  border-bottom: none;
+}
+
+.schedule-row-item:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.item-inactive {
+  opacity: 0.6;
+  background: var(--bg-secondary);
+}
+
+.reorder-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.btn-reorder {
+  background: var(--action-btn-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 0.65rem;
+  width: 22px;
+  height: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.btn-reorder:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-reorder:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.sort-order-num {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+.time-col {
+  flex-shrink: 0;
+}
+
+.ritual-time-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  background: var(--accent-glow);
+  border: 1px solid rgba(224, 165, 38, 0.35);
+}
+
+.clock-icon { font-size: 0.85rem; }
+.time-text {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--accent);
+  font-family: monospace;
+}
+
+.details-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.ritual-title-en {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.ritual-title-bn {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--action-btn-bg);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+.ritual-desc-en {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0 0 0.2rem;
+  line-height: 1.45;
+}
+
+.ritual-desc-bn {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.toggle-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.status-caption {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.caption-active { color: #22c55e; }
+.caption-hidden { color: var(--text-muted); }
+
+/* Switch Slider */
+.switch-toggle {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+}
+
+.switch-toggle input { opacity: 0; width: 0; height: 0; }
+
+.switch-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: var(--border-color);
+  transition: 0.2s;
+  border-radius: 22px;
+}
+
+.switch-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.2s;
+  border-radius: 50%;
+}
+
+input:checked + .switch-slider {
+  background-color: #22c55e;
+}
+
+input:checked + .switch-slider:before {
+  transform: translateX(18px);
+}
+
+.actions-col {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.btn-action-edit {
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  background: var(--action-btn-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 0.825rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-action-edit:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-action-del {
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  background: var(--action-btn-bg);
+  border: 1px solid var(--border-color);
+  color: #f87171;
+  font-size: 0.825rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-action-del:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* Loading & Empty State */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  padding: 4rem 2rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(224, 165, 38, 0.2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.empty-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+.empty-title { font-size: 1.2rem; font-weight: 800; margin: 0 0 0.35rem; }
+.empty-desc { font-size: 0.875rem; color: var(--text-secondary); margin: 0 0 1.25rem; }
+
+/* ====================================================
+   MODAL DIALOG STYLES
+   ==================================================== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(5px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.modal-dialog {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  max-width: 580px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.5);
+}
+
+.modal-dialog-sm {
+  max-width: 440px;
+}
+
+.modal-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.modal-tag {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.modal-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  margin: 0.2rem 0 0;
+}
+
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-close-btn:hover { color: var(--text-primary); }
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.form-group {
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.form-label {
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.required-star { color: #f87171; }
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+  font-family: inherit;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  border-color: var(--accent);
+}
+
+.font-mono { font-family: monospace; }
+
+.error-msg {
+  font-size: 0.75rem;
+  color: #f87171;
+  font-weight: 600;
+}
+
+.time-presets-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.preset-label {
+  font-size: 0.725rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.preset-chip {
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  background: var(--action-btn-bg);
+  border: 1px solid var(--border-color);
+  font-size: 0.725rem;
+  font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
+  font-family: monospace;
+  transition: all 0.15s;
+}
+
+.preset-chip:hover {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+}
+
+/* Bilingual Tabs */
+.lang-tabs-nav {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.lang-tab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 9999px;
+  background: var(--action-btn-bg);
+  border: 1px solid var(--border-color);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.lang-tab-active {
+  background: var(--accent);
+  color: #160B0C;
+  border-color: var(--accent);
+}
+
+.lang-req-dot { color: #f87171; font-weight: 800; }
+.lang-opt-badge { font-size: 0.65rem; opacity: 0.8; }
+
+.lang-fields-box {
+  margin-bottom: 1rem;
+}
+
+.form-row-2 {
+  display: flex;
+  gap: 1rem;
+}
+
+.flex-1 { flex: 1; }
+
+.hint-text {
+  font-size: 0.725rem;
+  color: var(--text-muted);
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  margin-top: 0.35rem;
+}
+
+.checkbox-container input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.checkbox-label-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.modal-footer {
+  padding: 1.15rem 1.5rem;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.btn-cancel {
+  padding: 0.6rem 1.15rem;
+  border-radius: 8px;
+  background: var(--action-btn-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-save {
+  padding: 0.6rem 1.4rem;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #160B0C;
+  font-size: 0.85rem;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.confirm-text {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem;
+  line-height: 1.5;
+}
+
+.confirm-warning {
+  font-size: 0.825rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.btn-delete-confirm {
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  background: #b91c1c;
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-delete-confirm:hover { background: #dc2626; }
+.btn-delete-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+
 @media (max-width: 768px) {
-  .admin-topbar {
-    padding: 0 1.25rem;
-  }
-
-  .dashboard-body {
-    padding: 1.5rem 1.25rem 3rem;
-  }
-
-  .kpi-grid {
-    grid-template-columns: 1fr;
-  }
+  .admin-topbar { padding: 0 1.25rem; }
+  .dashboard-body { padding: 1.5rem 1.25rem 3rem; }
+  .schedule-row-item { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+  .actions-col { width: 100%; justify-content: flex-end; }
+  .toggle-col { flex-direction: row; gap: 0.5rem; }
+  .form-row-2 { flex-direction: column; }
 }
 </style>
