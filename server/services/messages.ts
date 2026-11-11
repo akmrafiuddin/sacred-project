@@ -14,18 +14,22 @@ export class MessagesService {
     input: ContactMessageSubmission
   ) {
     const now = Date.now();
-    await db.insert(contactMessages).values({
-      name: input.name,
-      phone: input.phone || null,
-      email: input.email || null,
-      subject: input.subject,
-      message: input.message,
-      status: "new",
-      createdAt: now,
-      updatedAt: now,
-    });
+    const [inserted] = await db
+      .insert(contactMessages)
+      .values({
+        name: input.name,
+        phone: input.phone || null,
+        email: input.email || null,
+        subject: input.subject,
+        message: input.message,
+        status: "new",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning({ id: contactMessages.id });
 
     return {
+      id: inserted?.id,
       message: "Thank you for contacting the temple. Your message has been received.",
     };
   }

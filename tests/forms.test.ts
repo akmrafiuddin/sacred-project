@@ -225,13 +225,17 @@ describe("Phase 4 — Public Forms & Bookings", () => {
 
   describe("Contact Messages & Volunteers", () => {
     it("creates contact messages and handles admin read updates", async () => {
-      await MessagesService.createMessage(db, {
+      const res = await MessagesService.createMessage(db, {
         name: "Sunil Sen",
         email: "sunil@gmail.com",
         subject: "Temple Annadanam inquiry",
         message: "Can we sponsor the noon prasad on our parents anniversary?",
         turnstileToken: "dummy",
       });
+
+      expect(res.id).toBeDefined();
+      expect(typeof res.id).toBe("number");
+      expect(res.message).toBe("Thank you for contacting the temple. Your message has been received.");
 
       const list = await MessagesService.adminList(db, { page: 1, pageSize: 10 });
       expect(list.total).toBe(1);

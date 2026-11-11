@@ -15,7 +15,15 @@ export async function verifyTurnstile(event: H3Event, token: string): Promise<bo
 
   // Development & Testing bypass
   const isDev = import.meta.dev || process.env.NODE_ENV === "test" || Boolean(process.env.VITEST);
-  if (isDev && (token.startsWith("dummy") || token.includes("DUMMY") || token === "test-token")) {
+  if (
+    isDev &&
+    (token.startsWith("dummy") ||
+      token.includes("DUMMY") ||
+      token === "test-token" ||
+      token === "mock-token" ||
+      token.startsWith("mock") ||
+      token.startsWith("1x00000000000000000000AA"))
+  ) {
     return true;
   }
 
