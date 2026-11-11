@@ -1,7 +1,10 @@
-import { and, asc, eq, like, sql } from "drizzle-orm";
+import { and, asc, eq, like, or, sql } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
+import { createError } from "h3";
 import * as schema from "../db/schema";
 import { pujas } from "../db/schema/pujas";
+import { AuditService } from "./audit";
+import { purgeCache } from "../utils/cache";
 import type {
   CreatePujaInput,
   UpdatePujaInput,
@@ -9,24 +12,50 @@ import type {
   ReorderPujasInput,
 } from "../../shared/schemas/pujas";
 
+export interface FormattedPujaItem {
+  id: number;
+  slug: string;
+  name: { en: string; bn: string };
+  description: { en: string; bn: string };
+  offered: { en: string; bn: string } | null;
+  priceBdt: number;
+  duration: string | null;
+  bookable: boolean;
+  sortOrder: number;
+  active: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export class PujasService {
-  static async list(db: DrizzleD1Database<typeof schema>, query: ListPujasQuery) {
-    const page = query.page || 1;
-    const pageSize = Math.min(query.pageSize || 50, 100);
+  /**
+   * List pujas with optional pagination, search, bookable, and active filtering.
+   */
+  static async list(db: DrizzleD1Database<typeof schema>, query?: ListPujasQuery) {
+    const page = query?.page || 1;
+    const pageSize = Math.min(query?.pageSize || 50, 100);
     const offset = (page - 1) * pageSize;
 
     const conditions = [];
 
-    if (query.active !== undefined) {
+    if (query?.active !== undefined) {
       conditions.push(eq(pujas.active, query.active));
     }
 
-    if (query.bookable !== undefined) {
+    if (query?.bookable !== undefined) {
       conditions.push(eq(pujas.bookable, query.bookable));
     }
 
-    if (query.search) {
-      conditions.push(like(pujas.name, `%${query.search}%`));
+    if (query?.search && query.search.trim()) {
+      const q = `%${query.search.trim()}%`;
+      conditions.push(
+        or(
+          like(pujas.name, q),
+          like(pujas.slug, q),
+          like(pujas.description, q),
+          like(pujas.offered, q)
+        )
+      );
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -56,21 +85,43 @@ export class PujasService {
     };
   }
 
-  static async getById(db: DrizzleD1Database<typeof schema>, id: number) {
+  /**
+   * Get single puja by integer ID.
+   */
+  static async getById(db: DrizzleD1Database<typeof schema>, id: number): Promise<FormattedPujaItem | null> {
     const rows = await db.select().from(pujas).where(eq(pujas.id, id)).limit(1);
     const row = rows[0];
     if (!row) return null;
     return this.formatRow(row);
   }
 
-  static async getBySlug(db: DrizzleD1Database<typeof schema>, slug: string) {
+  /**
+   * Get single puja by slug.
+   */
+  static async getBySlug(db: DrizzleD1Database<typeof schema>, slug: string): Promise<FormattedPujaItem | null> {
     const rows = await db.select().from(pujas).where(eq(pujas.slug, slug)).limit(1);
     const row = rows[0];
     if (!row) return null;
     return this.formatRow(row);
   }
 
-  static async create(db: DrizzleD1Database<typeof schema>, input: CreatePujaInput) {
+  /**
+   * Create new puja offering, invalidate edge cache, and record audit log.
+   */
+  static async create(
+    db: DrizzleD1Database<typeof schema>,
+    input: CreatePujaInput,
+    userId?: string | null
+  ): Promise<FormattedPujaItem> {
+    // Check for unique slug
+    const existing = await this.getBySlug(db, input.slug);
+    if (existing) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: `A puja with slug '${input.slug}' already exists`,
+      });
+    }
+
     const now = Date.now();
     const [inserted] = await db
       .insert(pujas)
@@ -90,16 +141,58 @@ export class PujasService {
       .returning();
 
     if (!inserted) {
-      throw new Error("Failed to insert puja");
+      throw createError({
+        statusCode: 500,
+        statusMessage: "Failed to insert puja",
+      });
     }
+
+    // Invalidate edge cache
+    await purgeCache(["pujas"]).catch((err) =>
+      console.warn("Pujas cache purge error:", err)
+    );
+
+    // Audit log
+    await AuditService.record(db, {
+      userId,
+      action: "create",
+      entity: "pujas",
+      entityId: String(inserted.id),
+      details: {
+        slug: input.slug,
+        name: input.name.en,
+        priceBdt: input.priceBdt,
+      },
+    }).catch((err) => console.warn("Audit record error:", err));
 
     return this.formatRow(inserted);
   }
 
-  static async update(db: DrizzleD1Database<typeof schema>, input: UpdatePujaInput) {
+  /**
+   * Update puja by ID, invalidate edge cache, and record audit log.
+   */
+  static async update(
+    db: DrizzleD1Database<typeof schema>,
+    input: UpdatePujaInput,
+    userId?: string | null
+  ): Promise<FormattedPujaItem> {
     const existing = await this.getById(db, input.id);
     if (!existing) {
-      throw new Error(`Puja with ID ${input.id} not found`);
+      throw createError({
+        statusCode: 404,
+        statusMessage: `Puja with ID ${input.id} not found`,
+      });
+    }
+
+    // Check slug uniqueness if changed
+    if (input.slug && input.slug !== existing.slug) {
+      const slugConflict = await this.getBySlug(db, input.slug);
+      if (slugConflict && slugConflict.id !== input.id) {
+        throw createError({
+          statusCode: 409,
+          statusMessage: `A puja with slug '${input.slug}' already exists`,
+        });
+      }
     }
 
     const now = Date.now();
@@ -126,13 +219,43 @@ export class PujasService {
       .returning();
 
     if (!updated) {
-      throw new Error(`Failed to update puja ${input.id}`);
+      throw createError({
+        statusCode: 500,
+        statusMessage: `Failed to update puja ${input.id}`,
+      });
     }
+
+    // Invalidate edge cache
+    await purgeCache(["pujas"]).catch((err) =>
+      console.warn("Pujas cache purge error:", err)
+    );
+
+    // Audit log
+    await AuditService.record(db, {
+      userId,
+      action: "update",
+      entity: "pujas",
+      entityId: String(input.id),
+      details: {
+        slug: input.slug ?? existing.slug,
+        name: input.name?.en ?? existing.name.en,
+        priceBdt: input.priceBdt ?? existing.priceBdt,
+        active: input.active ?? existing.active,
+        bookable: input.bookable ?? existing.bookable,
+      },
+    }).catch((err) => console.warn("Audit record error:", err));
 
     return this.formatRow(updated);
   }
 
-  static async reorder(db: DrizzleD1Database<typeof schema>, input: ReorderPujasInput) {
+  /**
+   * Reorder pujas in batch, invalidate cache, and record audit log.
+   */
+  static async reorder(
+    db: DrizzleD1Database<typeof schema>,
+    input: ReorderPujasInput,
+    userId?: string | null
+  ) {
     const now = Date.now();
     for (const item of input.items) {
       await db
@@ -140,16 +263,66 @@ export class PujasService {
         .set({ sortOrder: item.sortOrder, updatedAt: now })
         .where(eq(pujas.id, item.id));
     }
+
+    // Invalidate edge cache
+    await purgeCache(["pujas"]).catch((err) =>
+      console.warn("Pujas cache purge error:", err)
+    );
+
+    // Audit log
+    await AuditService.record(db, {
+      userId,
+      action: "reorder",
+      entity: "pujas",
+      entityId: "batch",
+      details: { count: input.items.length },
+    }).catch((err) => console.warn("Audit record error:", err));
+
     return true;
   }
 
-  static async delete(db: DrizzleD1Database<typeof schema>, id: number) {
+  /**
+   * Delete puja by ID, invalidate cache, and record audit log.
+   */
+  static async delete(
+    db: DrizzleD1Database<typeof schema>,
+    id: number,
+    userId?: string | null
+  ) {
+    const existing = await this.getById(db, id);
+    if (!existing) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: `Puja with ID ${id} not found`,
+      });
+    }
+
     const [deleted] = await db.delete(pujas).where(eq(pujas.id, id)).returning();
+
+    // Invalidate edge cache
+    await purgeCache(["pujas"]).catch((err) =>
+      console.warn("Pujas cache purge error:", err)
+    );
+
+    // Audit log
+    await AuditService.record(db, {
+      userId,
+      action: "delete",
+      entity: "pujas",
+      entityId: String(id),
+      details: {
+        name: existing.name.en,
+        slug: existing.slug,
+      },
+    }).catch((err) => console.warn("Audit record error:", err));
+
     return !!deleted;
   }
 
-  // Public cached list: active only
-  static async getPublicList(db: DrizzleD1Database<typeof schema>) {
+  /**
+   * Public cached list: active pujas only, sorted by sortOrder asc.
+   */
+  static async getPublicList(db: DrizzleD1Database<typeof schema>): Promise<FormattedPujaItem[]> {
     const rows = await db
       .select()
       .from(pujas)
@@ -159,7 +332,13 @@ export class PujasService {
     return rows.map(this.formatRow);
   }
 
-  static async getPublicBySlug(db: DrizzleD1Database<typeof schema>, slug: string) {
+  /**
+   * Public single puja by slug: active only.
+   */
+  static async getPublicBySlug(
+    db: DrizzleD1Database<typeof schema>,
+    slug: string
+  ): Promise<FormattedPujaItem | null> {
     const rows = await db
       .select()
       .from(pujas)
@@ -171,7 +350,7 @@ export class PujasService {
     return this.formatRow(row);
   }
 
-  private static formatRow(row: typeof pujas.$inferSelect) {
+  private static formatRow(row: typeof pujas.$inferSelect): FormattedPujaItem {
     return {
       ...row,
       name: parseJson(row.name, { en: "", bn: "" }),

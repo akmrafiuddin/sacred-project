@@ -2,6 +2,7 @@
 import { ref, reactive, computed, onMounted, watchEffect } from "vue";
 import { useAuth } from "~/composables/useAuth";
 import type { FormattedScheduleItem, NextAartiResult } from "~~/server/services/schedule";
+import type { FormattedPujaItem } from "~~/server/services/pujas";
 
 useHead({
   title: "Sanctum Dashboard - Temple Console",
@@ -20,7 +21,7 @@ watchEffect(() => {
 });
 
 const isSidebarOpen = ref(false);
-const activeModule = ref<"dashboard" | "schedule">("dashboard");
+const activeModule = ref<"dashboard" | "schedule" | "pujas">("dashboard");
 
 // Current date formatted
 const formattedDate = ref("");
@@ -38,6 +39,7 @@ onMounted(() => {
 const navItems = [
   { id: "dashboard", label: "Dashboard Overview", icon: "📊", badge: "Live" },
   { id: "schedule", label: "Daily Schedule", icon: "🔔", badge: "Rituals" },
+  { id: "pujas", label: "Pujas & Services", icon: "🪔", badge: "Offerings" },
 ];
 
 // =========================================================================
@@ -91,6 +93,7 @@ const fetchScheduleData = async () => {
 
 onMounted(() => {
   fetchScheduleData();
+  fetchPujasData();
 });
 
 // Filtered schedule list
@@ -300,6 +303,324 @@ const executeDelete = async () => {
     showToast(err?.message || "Failed to delete ritual", "error");
   } finally {
     deletingItem.value = false;
+  }
+};
+
+// =========================================================================
+// PUJAS & SACRED SERVICES STATE & METHODS
+// =========================================================================
+const pujaItems = ref<FormattedPujaItem[]>([]);
+const loadingPujas = ref(false);
+const pujaSearchQuery = ref("");
+const pujaFilter = ref<"all" | "active" | "hidden" | "bookable">("all");
+
+const fetchPujasData = async () => {
+  loadingPujas.value = true;
+  try {
+    const res = await $trpc.pujas.list.query();
+    if (res && res.items) {
+      pujaItems.value = res.items;
+    }
+  } catch (err: any) {
+    console.error("Failed to load pujas:", err);
+    showToast(err?.message || "Failed to load pujas data", "error");
+  } finally {
+    loadingPujas.value = false;
+  }
+};
+
+// Filtered pujas computed
+const filteredPujas = computed(() => {
+  return pujaItems.value.filter((item) => {
+    // 1. Status / bookable filter
+    if (pujaFilter.value === "active" && !item.active) return false;
+    if (pujaFilter.value === "hidden" && item.active) return false;
+    if (pujaFilter.value === "bookable" && !item.bookable) return false;
+
+    // 2. Search query filter
+    if (pujaSearchQuery.value.trim()) {
+      const q = pujaSearchQuery.value.trim().toLowerCase();
+      const matchSlug = item.slug.toLowerCase().includes(q);
+      const matchNameEn = item.name.en.toLowerCase().includes(q);
+      const matchNameBn = (item.name.bn || "").toLowerCase().includes(q);
+      const matchDescEn = (item.description.en || "").toLowerCase().includes(q);
+      const matchDescBn = (item.description.bn || "").toLowerCase().includes(q);
+      const matchOfferedEn = (item.offered?.en || "").toLowerCase().includes(q);
+      const matchOfferedBn = (item.offered?.bn || "").toLowerCase().includes(q);
+      const matchPrice = String(item.priceBdt).includes(q);
+      return (
+        matchSlug ||
+        matchNameEn ||
+        matchNameBn ||
+        matchDescEn ||
+        matchDescBn ||
+        matchOfferedEn ||
+        matchOfferedBn ||
+        matchPrice
+      );
+    }
+
+    return true;
+  });
+});
+
+// Stats computed
+const totalPujasCount = computed(() => pujaItems.value.length);
+const activePujasCount = computed(() => pujaItems.value.filter((p) => p.active).length);
+const hiddenPujasCount = computed(() => pujaItems.value.filter((p) => !p.active).length);
+const bookablePujasCount = computed(() => pujaItems.value.filter((p) => p.bookable).length);
+
+// Modal state for Puja
+const isPujaModalOpen = ref(false);
+const isEditingPuja = ref(false);
+const savingPuja = ref(false);
+const currentEditingPujaId = ref<number | null>(null);
+const activePujaLangTab = ref<"en" | "bn">("en");
+const autoSlugEnabled = ref(true);
+
+const pujaForm = reactive({
+  slug: "",
+  nameEn: "",
+  nameBn: "",
+  descEn: "",
+  descBn: "",
+  offeredEn: "",
+  offeredBn: "",
+  priceBdt: 501,
+  duration: "45 minutes",
+  bookable: true,
+  sortOrder: 0,
+  active: true,
+});
+
+const pujaFormErrors = reactive({
+  slug: "",
+  nameEn: "",
+  descEn: "",
+  priceBdt: "",
+});
+
+const pricePresets = [501, 1001, 1501, 2001, 2501, 5001];
+const durationPresets = ["30 minutes", "45 minutes", "1 hour", "1.5 hours", "2 hours"];
+
+const generateSlug = (val: string) => {
+  return val
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
+};
+
+const onPujaNameEnInput = () => {
+  if (autoSlugEnabled.value && !isEditingPuja.value) {
+    pujaForm.slug = generateSlug(pujaForm.nameEn);
+  }
+};
+
+const onSlugManualEdit = () => {
+  autoSlugEnabled.value = false;
+};
+
+const openAddPujaModal = () => {
+  isEditingPuja.value = false;
+  currentEditingPujaId.value = null;
+  autoSlugEnabled.value = true;
+  pujaForm.slug = "";
+  pujaForm.nameEn = "";
+  pujaForm.nameBn = "";
+  pujaForm.descEn = "";
+  pujaForm.descBn = "";
+  pujaForm.offeredEn = "";
+  pujaForm.offeredBn = "";
+  pujaForm.priceBdt = 501;
+  pujaForm.duration = "45 minutes";
+  pujaForm.bookable = true;
+  pujaForm.sortOrder = pujaItems.value.length + 1;
+  pujaForm.active = true;
+  pujaFormErrors.slug = "";
+  pujaFormErrors.nameEn = "";
+  pujaFormErrors.descEn = "";
+  pujaFormErrors.priceBdt = "";
+  activePujaLangTab.value = "en";
+  isPujaModalOpen.value = true;
+};
+
+const openEditPujaModal = (item: FormattedPujaItem) => {
+  isEditingPuja.value = true;
+  currentEditingPujaId.value = item.id;
+  autoSlugEnabled.value = false;
+  pujaForm.slug = item.slug;
+  pujaForm.nameEn = item.name.en || "";
+  pujaForm.nameBn = item.name.bn || "";
+  pujaForm.descEn = item.description.en || "";
+  pujaForm.descBn = item.description.bn || "";
+  pujaForm.offeredEn = item.offered?.en || "";
+  pujaForm.offeredBn = item.offered?.bn || "";
+  pujaForm.priceBdt = item.priceBdt;
+  pujaForm.duration = item.duration || "";
+  pujaForm.bookable = item.bookable;
+  pujaForm.sortOrder = item.sortOrder;
+  pujaForm.active = item.active;
+  pujaFormErrors.slug = "";
+  pujaFormErrors.nameEn = "";
+  pujaFormErrors.descEn = "";
+  pujaFormErrors.priceBdt = "";
+  activePujaLangTab.value = "en";
+  isPujaModalOpen.value = true;
+};
+
+const validatePujaForm = () => {
+  let valid = true;
+  pujaFormErrors.slug = "";
+  pujaFormErrors.nameEn = "";
+  pujaFormErrors.descEn = "";
+  pujaFormErrors.priceBdt = "";
+
+  const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  if (!pujaForm.slug.trim()) {
+    pujaFormErrors.slug = "Slug is required (e.g. nitya-puja)";
+    valid = false;
+  } else if (!slugRegex.test(pujaForm.slug.trim())) {
+    pujaFormErrors.slug = "Slug must contain only lowercase letters, numbers, and hyphens";
+    valid = false;
+  }
+
+  if (!pujaForm.nameEn.trim()) {
+    pujaFormErrors.nameEn = "English puja name is required";
+    valid = false;
+  }
+
+  if (!pujaForm.descEn.trim()) {
+    pujaFormErrors.descEn = "English description is required";
+    valid = false;
+  }
+
+  if (pujaForm.priceBdt < 0 || isNaN(pujaForm.priceBdt)) {
+    pujaFormErrors.priceBdt = "Price in BDT must be 0 or a positive integer";
+    valid = false;
+  }
+
+  return valid;
+};
+
+const savePujaItem = async () => {
+  if (!validatePujaForm()) return;
+
+  savingPuja.value = true;
+  try {
+    const inputPayload = {
+      slug: pujaForm.slug.trim().toLowerCase(),
+      name: { en: pujaForm.nameEn.trim(), bn: pujaForm.nameBn.trim() },
+      description: { en: pujaForm.descEn.trim(), bn: pujaForm.descBn.trim() },
+      offered:
+        pujaForm.offeredEn.trim() || pujaForm.offeredBn.trim()
+          ? { en: pujaForm.offeredEn.trim(), bn: pujaForm.offeredBn.trim() }
+          : undefined,
+      priceBdt: Math.round(pujaForm.priceBdt),
+      duration: pujaForm.duration.trim() || undefined,
+      bookable: pujaForm.bookable,
+      sortOrder: pujaForm.sortOrder,
+      active: pujaForm.active,
+    };
+
+    if (isEditingPuja.value && currentEditingPujaId.value !== null) {
+      await $trpc.pujas.update.mutate({
+        id: currentEditingPujaId.value,
+        ...inputPayload,
+      });
+      showToast("Puja offering updated successfully!");
+    } else {
+      await $trpc.pujas.create.mutate(inputPayload);
+      showToast("New puja offering created successfully!");
+    }
+
+    isPujaModalOpen.value = false;
+    await fetchPujasData();
+  } catch (err: any) {
+    console.error("Failed to save puja:", err);
+    showToast(err?.message || "Failed to save puja offering", "error");
+  } finally {
+    savingPuja.value = false;
+  }
+};
+
+const togglePujaActiveStatus = async (item: FormattedPujaItem) => {
+  try {
+    const nextState = !item.active;
+    await $trpc.pujas.setActive.mutate({
+      id: item.id,
+      active: nextState,
+    });
+    item.active = nextState;
+    showToast(`'${item.name.en}' is now ${nextState ? 'Active' : 'Hidden'}`);
+    await fetchPujasData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to toggle status", "error");
+  }
+};
+
+const togglePujaBookableStatus = async (item: FormattedPujaItem) => {
+  try {
+    const nextState = !item.bookable;
+    await $trpc.pujas.setBookable.mutate({
+      id: item.id,
+      bookable: nextState,
+    });
+    item.bookable = nextState;
+    showToast(`'${item.name.en}' booking is now ${nextState ? 'Enabled' : 'Disabled'}`);
+    await fetchPujasData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to toggle booking", "error");
+  }
+};
+
+const movePujaOrder = async (index: number, direction: "up" | "down") => {
+  const target = direction === "up" ? index - 1 : index + 1;
+  const list = [...filteredPujas.value];
+  if (target < 0 || target >= list.length) return;
+
+  const current = list[index];
+  const other = list[target];
+  if (!current || !other) return;
+
+  const tempOrder = current.sortOrder;
+  current.sortOrder = other.sortOrder;
+  other.sortOrder = tempOrder;
+
+  try {
+    await $trpc.pujas.reorder.mutate({
+      items: [
+        { id: current.id, sortOrder: current.sortOrder },
+        { id: other.id, sortOrder: other.sortOrder },
+      ],
+    });
+    showToast("Pujas reordered successfully!");
+    await fetchPujasData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to reorder", "error");
+  }
+};
+
+const deleteConfirmPuja = ref<FormattedPujaItem | null>(null);
+const deletingPuja = ref(false);
+
+const confirmDeletePuja = (item: FormattedPujaItem) => {
+  deleteConfirmPuja.value = item;
+};
+
+const executeDeletePuja = async () => {
+  if (!deleteConfirmPuja.value) return;
+
+  deletingPuja.value = true;
+  try {
+    await $trpc.pujas.delete.mutate({ id: deleteConfirmPuja.value.id });
+    showToast(`Deleted '${deleteConfirmPuja.value.name.en}' successfully!`);
+    deleteConfirmPuja.value = null;
+    await fetchPujasData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to delete puja", "error");
+  } finally {
+    deletingPuja.value = false;
   }
 };
 </script>
@@ -703,6 +1024,221 @@ const executeDelete = async () => {
             </div>
           </div>
         </div>
+
+        <!-- =============================================================== -->
+        <!-- TAB 3: PUJAS & SERVICES CRUD MANAGER                           -->
+        <!-- =============================================================== -->
+        <div v-else-if="activeModule === 'pujas'" class="tab-pane">
+          <!-- Module Header -->
+          <div class="module-header-row">
+            <div>
+              <h1 class="module-title">Pujas & Sacred Services</h1>
+              <p class="module-subtitle">
+                Configure temple puja offerings, suggested dakshina/charges, duration, samagri inclusions, and devotee booking settings.
+              </p>
+            </div>
+            <div class="module-header-actions">
+              <button type="button" class="btn-refresh" @click="fetchPujasData" title="Refresh pujas list">
+                ↻ Refresh
+              </button>
+              <button type="button" class="btn-add-primary" @click="openAddPujaModal">
+                <span>+ Add Puja Offering</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Filters Bar -->
+          <div class="filters-bar">
+            <div class="search-box">
+              <span class="search-icon">🔍</span>
+              <input
+                type="text"
+                v-model="pujaSearchQuery"
+                class="search-input"
+                placeholder="Search pujas by title, slug, samagri, or description..."
+              />
+              <button v-if="pujaSearchQuery" class="clear-search-btn" @click="pujaSearchQuery = ''">&times;</button>
+            </div>
+
+            <div class="filter-pills">
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': pujaFilter === 'all' }"
+                @click="pujaFilter = 'all'"
+              >
+                All ({{ totalPujasCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': pujaFilter === 'active' }"
+                @click="pujaFilter = 'active'"
+              >
+                Active ({{ activePujasCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': pujaFilter === 'hidden' }"
+                @click="pujaFilter = 'hidden'"
+              >
+                Hidden ({{ hiddenPujasCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': pujaFilter === 'bookable' }"
+                @click="pujaFilter = 'bookable'"
+              >
+                Bookable ({{ bookablePujasCount }})
+              </button>
+            </div>
+          </div>
+
+          <!-- Pujas Table / Card List -->
+          <div class="schedule-table-card">
+            <div v-if="loadingPujas" class="loading-state">
+              <div class="spinner"></div>
+              <span>Loading sacred puja offerings from Sanctum database...</span>
+            </div>
+
+            <div v-else-if="filteredPujas.length === 0" class="empty-state">
+              <span class="empty-icon">🪔</span>
+              <h3 class="empty-title">No puja offerings found</h3>
+              <p class="empty-desc">
+                {{ pujaSearchQuery ? 'No pujas match your search filter.' : 'No puja offerings have been configured in Sanctum yet.' }}
+              </p>
+              <button type="button" class="btn-add-primary" @click="openAddPujaModal">
+                <span>+ Add First Puja Offering</span>
+              </button>
+            </div>
+
+            <div v-else class="puja-items-list">
+              <div
+                v-for="(item, idx) in filteredPujas"
+                :key="item.id"
+                class="puja-row-item"
+                :class="{ 'item-inactive': !item.active }"
+              >
+                <!-- Reorder Controls -->
+                <div class="reorder-col">
+                  <button
+                    type="button"
+                    class="btn-reorder"
+                    :disabled="idx === 0"
+                    title="Move higher"
+                    @click="movePujaOrder(idx, 'up')"
+                  >
+                    ▲
+                  </button>
+                  <span class="sort-order-num">{{ item.sortOrder }}</span>
+                  <button
+                    type="button"
+                    class="btn-reorder"
+                    :disabled="idx === filteredPujas.length - 1"
+                    title="Move lower"
+                    @click="movePujaOrder(idx, 'down')"
+                  >
+                    ▼
+                  </button>
+                </div>
+
+                <!-- Price & Duration Meta Pill -->
+                <div class="puja-meta-badge-col">
+                  <div class="puja-price-badge">
+                    <span class="currency-sym">৳</span>
+                    <span class="price-val">{{ item.priceBdt.toLocaleString() }}</span>
+                  </div>
+                  <div class="puja-duration-pill">
+                    <span>⏱️</span>
+                    <span>{{ item.duration || 'Flexible' }}</span>
+                  </div>
+                </div>
+
+                <!-- Puja Details Column -->
+                <div class="puja-details-col">
+                  <div class="title-row">
+                    <h3 class="puja-title-en">{{ item.name.en }}</h3>
+                    <span v-if="item.name.bn" class="puja-title-bn">{{ item.name.bn }}</span>
+                    <span class="puja-slug-pill">/{{ item.slug }}</span>
+                  </div>
+                  <p class="puja-desc-en">{{ item.description.en }}</p>
+                  <p v-if="item.description.bn" class="puja-desc-bn">{{ item.description.bn }}</p>
+
+                  <!-- Samagri / Offered Items Box -->
+                  <div v-if="item.offered?.en || item.offered?.bn" class="puja-offered-box">
+                    <span class="offered-icon">🌸</span>
+                    <div class="offered-content">
+                      <span class="offered-label">Included Samagri:</span>
+                      <span class="offered-text">{{ item.offered?.en }}</span>
+                      <span v-if="item.offered?.bn" class="offered-text-bn">({{ item.offered?.bn }})</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Dual Toggles: Bookable & Active -->
+                <div class="puja-toggles-col">
+                  <!-- Bookable toggle -->
+                  <div class="mini-toggle-group">
+                    <span class="mini-toggle-title">Online Booking</span>
+                    <div class="mini-toggle-row">
+                      <label class="switch-toggle" :title="item.bookable ? 'Click to disable online booking' : 'Click to enable online booking'">
+                        <input
+                          type="checkbox"
+                          :checked="item.bookable"
+                          @change="togglePujaBookableStatus(item)"
+                        />
+                        <span class="switch-slider round switch-slider-blue"></span>
+                      </label>
+                      <span class="status-caption" :class="item.bookable ? 'caption-bookable' : 'caption-hidden'">
+                        {{ item.bookable ? 'Enabled' : 'Disabled' }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Active toggle -->
+                  <div class="mini-toggle-group">
+                    <span class="mini-toggle-title">Portal Visibility</span>
+                    <div class="mini-toggle-row">
+                      <label class="switch-toggle" :title="item.active ? 'Click to hide from public' : 'Click to make active'">
+                        <input
+                          type="checkbox"
+                          :checked="item.active"
+                          @change="togglePujaActiveStatus(item)"
+                        />
+                        <span class="switch-slider round"></span>
+                      </label>
+                      <span class="status-caption" :class="item.active ? 'caption-active' : 'caption-hidden'">
+                        {{ item.active ? 'Active' : 'Hidden' }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="actions-col">
+                  <button
+                    type="button"
+                    class="btn-action-edit"
+                    title="Edit puja details"
+                    @click="openEditPujaModal(item)"
+                  >
+                    <span>✏️ Edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-action-del"
+                    title="Delete puja offering"
+                    @click="confirmDeletePuja(item)"
+                  >
+                    <span>🗑️</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
 
@@ -882,6 +1418,268 @@ const executeDelete = async () => {
             @click="executeDelete"
           >
             <span>{{ deletingItem ? 'Deleting...' : 'Yes, Delete' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- ADD / EDIT PUJA MODAL DIALOG                                        -->
+    <!-- =================================================================== -->
+    <div v-if="isPujaModalOpen" class="modal-backdrop" @click.self="isPujaModalOpen = false">
+      <div class="modal-dialog modal-dialog-lg">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-tag">{{ isEditingPuja ? 'EDIT PUJA' : 'NEW PUJA OFFERING' }}</span>
+            <h2 class="modal-title">{{ isEditingPuja ? 'Edit Puja Offering & Charges' : 'Add New Puja Offering' }}</h2>
+          </div>
+          <button type="button" class="modal-close-btn" @click="isPujaModalOpen = false">&times;</button>
+        </div>
+
+        <form @submit.prevent="savePujaItem" class="modal-form">
+          <div class="modal-body">
+            <!-- 1. SLUG, PRICE & DURATION ROW -->
+            <div class="form-row-3">
+              <!-- Slug -->
+              <div class="form-group flex-1">
+                <label class="form-label">
+                  URL Slug <span class="required-star">*</span>
+                </label>
+                <div class="input-with-prefix">
+                  <span class="input-prefix">/</span>
+                  <input
+                    type="text"
+                    v-model="pujaForm.slug"
+                    class="form-input font-mono"
+                    placeholder="satyanarayan-puja"
+                    @input="onSlugManualEdit"
+                  />
+                </div>
+                <span v-if="pujaFormErrors.slug" class="error-msg">{{ pujaFormErrors.slug }}</span>
+                <span class="hint-text">Unique URL identifier (lowercase letters & hyphens)</span>
+              </div>
+
+              <!-- Price in BDT -->
+              <div class="form-group flex-1">
+                <label class="form-label">
+                  Dakshina / Price (BDT) <span class="required-star">*</span>
+                </label>
+                <div class="input-with-prefix">
+                  <span class="input-prefix">৳</span>
+                  <input
+                    type="number"
+                    v-model.number="pujaForm.priceBdt"
+                    class="form-input font-mono"
+                    placeholder="501"
+                    min="0"
+                  />
+                </div>
+                <span v-if="pujaFormErrors.priceBdt" class="error-msg">{{ pujaFormErrors.priceBdt }}</span>
+                <!-- Price Presets -->
+                <div class="chip-presets-row">
+                  <button
+                    v-for="preset in pricePresets"
+                    :key="preset"
+                    type="button"
+                    class="preset-chip"
+                    @click="pujaForm.priceBdt = preset; pujaFormErrors.priceBdt = ''"
+                  >
+                    ৳{{ preset }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Duration -->
+              <div class="form-group flex-1">
+                <label class="form-label">Estimated Duration</label>
+                <input
+                  type="text"
+                  v-model="pujaForm.duration"
+                  class="form-input"
+                  placeholder="e.g. 45 minutes, 2 hours"
+                />
+                <!-- Duration Presets -->
+                <div class="chip-presets-row">
+                  <button
+                    v-for="preset in durationPresets"
+                    :key="preset"
+                    type="button"
+                    class="preset-chip"
+                    @click="pujaForm.duration = preset"
+                  >
+                    {{ preset }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. BILINGUAL CONTENT TABS -->
+            <div class="lang-tab-bar">
+              <button
+                type="button"
+                class="lang-tab-btn"
+                :class="{ 'lang-tab-active': activePujaLangTab === 'en' }"
+                @click="activePujaLangTab = 'en'"
+              >
+                <span>English Content</span>
+                <span class="lang-req-dot">• Required</span>
+              </button>
+              <button
+                type="button"
+                class="lang-tab-btn"
+                :class="{ 'lang-tab-active': activePujaLangTab === 'bn' }"
+                @click="activePujaLangTab = 'bn'"
+              >
+                <span>বাংলা বিবরণ</span>
+                <span class="lang-opt-badge">(ঐচ্ছিক)</span>
+              </button>
+            </div>
+
+            <!-- English Fields -->
+            <div v-show="activePujaLangTab === 'en'" class="lang-fields-box">
+              <div class="form-group">
+                <label class="form-label">
+                  Puja Name (English) <span class="required-star">*</span>
+                </label>
+                <input
+                  type="text"
+                  v-model="pujaForm.nameEn"
+                  class="form-input"
+                  placeholder="e.g. Nitya Puja, Satyanarayan Puja, Rudrabhishek"
+                  @input="onPujaNameEnInput"
+                />
+                <span v-if="pujaFormErrors.nameEn" class="error-msg">{{ pujaFormErrors.nameEn }}</span>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">
+                  Description & Spiritual Significance (English) <span class="required-star">*</span>
+                </label>
+                <textarea
+                  v-model="pujaForm.descEn"
+                  class="form-textarea"
+                  rows="3"
+                  placeholder="The daily worship, offered on your behalf with your name and gotra read in the sankalpa..."
+                ></textarea>
+                <span v-if="pujaFormErrors.descEn" class="error-msg">{{ pujaFormErrors.descEn }}</span>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Included Samagri / Offerings (English)</label>
+                <input
+                  type="text"
+                  v-model="pujaForm.offeredEn"
+                  class="form-input"
+                  placeholder="e.g. Flowers, bel patra, incense, bhog and prasad"
+                />
+                <span class="hint-text">List of items and sacred offerings provided by the temple for this puja</span>
+              </div>
+            </div>
+
+            <!-- Bengali Fields -->
+            <div v-show="activePujaLangTab === 'bn'" class="lang-fields-box">
+              <div class="form-group">
+                <label class="form-label">পূজার নাম (বাংলা)</label>
+                <input
+                  type="text"
+                  v-model="pujaForm.nameBn"
+                  class="form-input"
+                  placeholder="যেমন: নিত্য পূজা, সত্যনারায়ণ পূজা, রুদ্রাভিষেক"
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">পূজার মাহাত্ম্য ও বিবরণ (বাংলা)</label>
+                <textarea
+                  v-model="pujaForm.descBn"
+                  class="form-textarea"
+                  rows="3"
+                  placeholder="ভক্তের নাম ও গোত্রে সংকল্পপূর্বক মন্দিরের পুরোহিত দ্বারা অর্পিত..."
+                ></textarea>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">প্রদত্ত সামগ্রী ও উপাচার (বাংলা)</label>
+                <input
+                  type="text"
+                  v-model="pujaForm.offeredBn"
+                  class="form-input"
+                  placeholder="যেমন: ফুল, বেলপাতা, চন্দন, ভোগ ও গৃহের প্রসাদ"
+                />
+              </div>
+            </div>
+
+            <!-- 3. SORT ORDER, BOOKABLE & ACTIVE SWITCHES -->
+            <div class="form-row-3 align-center">
+              <div class="form-group flex-1">
+                <label class="form-label">Display Order</label>
+                <input
+                  type="number"
+                  v-model.number="pujaForm.sortOrder"
+                  class="form-input"
+                  min="0"
+                />
+                <span class="hint-text">Order in which this puja appears on the list</span>
+              </div>
+
+              <div class="form-group flex-1 checkbox-group">
+                <label class="form-label">Online Booking</label>
+                <label class="checkbox-container">
+                  <input type="checkbox" v-model="pujaForm.bookable" />
+                  <span class="checkbox-label-text">
+                    {{ pujaForm.bookable ? 'Allow Online Booking' : 'Walk-in / Office Only' }}
+                  </span>
+                </label>
+              </div>
+
+              <div class="form-group flex-1 checkbox-group">
+                <label class="form-label">Public Visibility</label>
+                <label class="checkbox-container">
+                  <input type="checkbox" v-model="pujaForm.active" />
+                  <span class="checkbox-label-text">
+                    {{ pujaForm.active ? 'Active (Live on Portal)' : 'Hidden (Draft Only)' }}
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-cancel" @click="isPujaModalOpen = false">Cancel</button>
+            <button type="submit" class="btn-save" :disabled="savingPuja">
+              <span>{{ savingPuja ? 'Saving...' : isEditingPuja ? 'Update Puja' : 'Create Puja' }}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- DELETE PUJA CONFIRMATION MODAL                                      -->
+    <!-- =================================================================== -->
+    <div v-if="deleteConfirmPuja" class="modal-backdrop" @click.self="deleteConfirmPuja = null">
+      <div class="modal-dialog modal-dialog-sm">
+        <div class="modal-header">
+          <h2 class="modal-title text-red-500">Confirm Puja Deletion</h2>
+          <button type="button" class="modal-close-btn" @click="deleteConfirmPuja = null">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="confirm-text">
+            Are you sure you want to delete <strong>{{ deleteConfirmPuja.name.en }}</strong> (৳{{ deleteConfirmPuja.priceBdt }})?
+          </p>
+          <p class="confirm-warning">
+            This will permanently remove this puja from public listings. Any existing booking records will be retained with their details intact.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-cancel" @click="deleteConfirmPuja = null">Cancel</button>
+          <button
+            type="button"
+            class="btn-delete-confirm"
+            :disabled="deletingPuja"
+            @click="executeDeletePuja"
+          >
+            <span>{{ deletingPuja ? 'Deleting...' : 'Yes, Delete Puja' }}</span>
           </button>
         </div>
       </div>
@@ -2111,6 +2909,257 @@ input:checked + .switch-slider:before {
 .btn-delete-confirm:hover { background: #dc2626; }
 .btn-delete-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ====================================================
+   PUJAS & SERVICES STYLING
+   ==================================================== */
+.amber-icon {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.puja-items-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.puja-row-item {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 0.15s ease;
+}
+
+.puja-row-item:last-child {
+  border-bottom: none;
+}
+
+.puja-row-item:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.puja-meta-badge-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  min-width: 105px;
+}
+
+.puja-price-badge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  background: var(--accent-glow);
+  border: 1px solid rgba(224, 165, 38, 0.35);
+}
+
+.currency-sym {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.price-val {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: -0.01em;
+}
+
+.puja-duration-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--action-btn-bg);
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  width: fit-content;
+}
+
+.puja-details-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.puja-title-en {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.puja-title-bn {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--action-btn-bg);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+.puja-slug-pill {
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+}
+
+.puja-desc-en {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0 0 0.25rem;
+  line-height: 1.45;
+}
+
+.puja-desc-bn {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0 0 0.4rem;
+}
+
+.puja-offered-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  background: rgba(224, 165, 38, 0.05);
+  border: 1px dashed rgba(224, 165, 38, 0.25);
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  margin-top: 0.4rem;
+}
+
+.offered-icon {
+  font-size: 0.85rem;
+  margin-top: 0.1rem;
+}
+
+.offered-content {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.offered-label {
+  font-weight: 700;
+  color: var(--accent);
+  margin-right: 0.35rem;
+}
+
+.offered-text-bn {
+  color: var(--text-muted);
+  margin-left: 0.25rem;
+}
+
+.puja-toggles-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  flex-shrink: 0;
+  min-width: 130px;
+}
+
+.mini-toggle-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.mini-toggle-title {
+  font-size: 0.675rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.mini-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.switch-slider-blue {
+  background-color: var(--border-color);
+}
+
+input:checked + .switch-slider-blue {
+  background-color: #3b82f6;
+}
+
+.caption-bookable {
+  color: #60a5fa;
+}
+
+/* Modal Dialog Large for Puja */
+.modal-dialog-lg {
+  max-width: 720px;
+  width: 95%;
+}
+
+.form-row-3 {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.align-center {
+  align-items: center;
+}
+
+.input-with-prefix {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-prefix {
+  position: absolute;
+  left: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 800;
+  font-size: 0.95rem;
+  pointer-events: none;
+}
+
+.input-with-prefix .form-input {
+  padding-left: 2rem;
+}
+
+.chip-presets-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+.chip-presets-row .preset-chip {
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  background: var(--action-btn-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.725rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.chip-presets-row .preset-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 @media (max-width: 768px) {
   .admin-topbar { padding: 0 1.25rem; }
   .dashboard-body { padding: 1.5rem 1.25rem 3rem; }
@@ -2118,5 +3167,8 @@ input:checked + .switch-slider:before {
   .actions-col { width: 100%; justify-content: flex-end; }
   .toggle-col { flex-direction: row; gap: 0.5rem; }
   .form-row-2 { flex-direction: column; }
+  .puja-row-item { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+  .puja-toggles-col { flex-direction: row; gap: 1.5rem; width: 100%; justify-content: flex-start; }
+  .form-row-3 { flex-direction: column; gap: 0.75rem; }
 }
 </style>

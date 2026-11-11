@@ -37,7 +37,7 @@ export const reorderPujasSchema = z.object({
       id: z.number().int().positive(),
       sortOrder: z.number().int(),
     })
-  ),
+  ).min(1, "At least one item is required for reordering"),
 });
 
 export type ReorderPujasInput = z.infer<typeof reorderPujasSchema>;
