@@ -31,6 +31,16 @@ describe("Phase 4 — Public Forms & Bookings", () => {
         phone TEXT
       );
 
+      CREATE TABLE audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+        user_id TEXT,
+        action TEXT NOT NULL,
+        entity TEXT NOT NULL,
+        entity_id TEXT,
+        details TEXT,
+        at INTEGER NOT NULL
+      );
+
       CREATE TABLE pujas (
         id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
         slug TEXT NOT NULL UNIQUE,

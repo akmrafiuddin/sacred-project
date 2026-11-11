@@ -3,6 +3,9 @@ import { ref, reactive, computed, onMounted, watchEffect } from "vue";
 import { useAuth } from "~/composables/useAuth";
 import type { FormattedScheduleItem, NextAartiResult } from "~~/server/services/schedule";
 import type { FormattedPujaItem } from "~~/server/services/pujas";
+import type { FormattedDeityItem } from "~~/server/services/deities";
+import type { FormattedNoticeItem } from "~~/server/services/notices";
+import type { BookingStatus } from "~~/shared/schemas/forms";
 
 useHead({
   title: "Sanctum Dashboard - Temple Console",
@@ -21,7 +24,7 @@ watchEffect(() => {
 });
 
 const isSidebarOpen = ref(false);
-const activeModule = ref<"dashboard" | "schedule" | "pujas">("dashboard");
+const activeModule = ref<"dashboard" | "schedule" | "pujas" | "deities" | "notices" | "bookings">("dashboard");
 
 // Current date formatted
 const formattedDate = ref("");
@@ -40,6 +43,9 @@ const navItems = [
   { id: "dashboard", label: "Dashboard Overview", icon: "📊", badge: "Live" },
   { id: "schedule", label: "Daily Schedule", icon: "🔔", badge: "Rituals" },
   { id: "pujas", label: "Pujas & Services", icon: "🪔", badge: "Offerings" },
+  { id: "deities", label: "Deities & Shrines", icon: "🕉️", badge: "Sacred" },
+  { id: "notices", label: "Temple Notices", icon: "📢", badge: "Board" },
+  { id: "bookings", label: "Puja Bookings", icon: "📋", badge: "Devotees" },
 ];
 
 // =========================================================================
@@ -94,6 +100,9 @@ const fetchScheduleData = async () => {
 onMounted(() => {
   fetchScheduleData();
   fetchPujasData();
+  fetchDeitiesData();
+  fetchNoticesData();
+  fetchBookingsData();
 });
 
 // Filtered schedule list
@@ -623,6 +632,695 @@ const executeDeletePuja = async () => {
     deletingPuja.value = false;
   }
 };
+
+// =========================================================================
+// DEITIES & SACRED SHRINES STATE & METHODS
+// =========================================================================
+const deityItems = ref<FormattedDeityItem[]>([]);
+const loadingDeities = ref(false);
+const deitySearchQuery = ref("");
+const deityFilter = ref<"all" | "active" | "hidden">("all");
+
+const fetchDeitiesData = async () => {
+  loadingDeities.value = true;
+  try {
+    const res = await $trpc.deities.list.query();
+    if (res && res.items) {
+      deityItems.value = res.items;
+    }
+  } catch (err: any) {
+    console.error("Failed to load deities:", err);
+    showToast(err?.message || "Failed to load deities data", "error");
+  } finally {
+    loadingDeities.value = false;
+  }
+};
+
+const filteredDeities = computed(() => {
+  return deityItems.value.filter((item) => {
+    if (deityFilter.value === "active" && !item.active) return false;
+    if (deityFilter.value === "hidden" && item.active) return false;
+
+    if (deitySearchQuery.value.trim()) {
+      const q = deitySearchQuery.value.trim().toLowerCase();
+      const matchSlug = item.slug.toLowerCase().includes(q);
+      const matchNameEn = item.name.en.toLowerCase().includes(q);
+      const matchNameBn = (item.name.bn || "").toLowerCase().includes(q);
+      const matchSubEn = (item.subtitle?.en || "").toLowerCase().includes(q);
+      const matchSubBn = (item.subtitle?.bn || "").toLowerCase().includes(q);
+      const matchDescEn = (item.description.en || "").toLowerCase().includes(q);
+      const matchDescBn = (item.description.bn || "").toLowerCase().includes(q);
+      return (
+        matchSlug ||
+        matchNameEn ||
+        matchNameBn ||
+        matchSubEn ||
+        matchSubBn ||
+        matchDescEn ||
+        matchDescBn
+      );
+    }
+
+    return true;
+  });
+});
+
+const totalDeitiesCount = computed(() => deityItems.value.length);
+const activeDeitiesCount = computed(() => deityItems.value.filter((d) => d.active).length);
+const hiddenDeitiesCount = computed(() => deityItems.value.filter((d) => !d.active).length);
+
+const isDeityModalOpen = ref(false);
+const isEditingDeity = ref(false);
+const savingDeity = ref(false);
+const currentEditingDeityId = ref<number | null>(null);
+const activeDeityLangTab = ref<"en" | "bn">("en");
+const autoDeitySlugEnabled = ref(true);
+
+const deityForm = reactive({
+  slug: "",
+  nameEn: "",
+  nameBn: "",
+  subtitleEn: "",
+  subtitleBn: "",
+  descEn: "",
+  descBn: "",
+  imageId: "",
+  sortOrder: 0,
+  active: true,
+});
+
+const deityFormErrors = reactive({
+  slug: "",
+  nameEn: "",
+  descEn: "",
+});
+
+const onDeityNameEnInput = () => {
+  if (autoDeitySlugEnabled.value && !isEditingDeity.value) {
+    deityForm.slug = generateSlug(deityForm.nameEn);
+  }
+};
+
+const onDeitySlugManualEdit = () => {
+  autoDeitySlugEnabled.value = false;
+};
+
+const openAddDeityModal = () => {
+  isEditingDeity.value = false;
+  currentEditingDeityId.value = null;
+  autoDeitySlugEnabled.value = true;
+  deityForm.slug = "";
+  deityForm.nameEn = "";
+  deityForm.nameBn = "";
+  deityForm.subtitleEn = "";
+  deityForm.subtitleBn = "";
+  deityForm.descEn = "";
+  deityForm.descBn = "";
+  deityForm.imageId = "";
+  deityForm.sortOrder = deityItems.value.length + 1;
+  deityForm.active = true;
+  deityFormErrors.slug = "";
+  deityFormErrors.nameEn = "";
+  deityFormErrors.descEn = "";
+  activeDeityLangTab.value = "en";
+  isDeityModalOpen.value = true;
+};
+
+const openEditDeityModal = (item: FormattedDeityItem) => {
+  isEditingDeity.value = true;
+  currentEditingDeityId.value = item.id;
+  autoDeitySlugEnabled.value = false;
+  deityForm.slug = item.slug;
+  deityForm.nameEn = item.name.en || "";
+  deityForm.nameBn = item.name.bn || "";
+  deityForm.subtitleEn = item.subtitle?.en || "";
+  deityForm.subtitleBn = item.subtitle?.bn || "";
+  deityForm.descEn = item.description.en || "";
+  deityForm.descBn = item.description.bn || "";
+  deityForm.imageId = item.imageId || "";
+  deityForm.sortOrder = item.sortOrder;
+  deityForm.active = item.active;
+  deityFormErrors.slug = "";
+  deityFormErrors.nameEn = "";
+  deityFormErrors.descEn = "";
+  activeDeityLangTab.value = "en";
+  isDeityModalOpen.value = true;
+};
+
+const validateDeityForm = () => {
+  let valid = true;
+  deityFormErrors.slug = "";
+  deityFormErrors.nameEn = "";
+  deityFormErrors.descEn = "";
+
+  const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  if (!deityForm.slug.trim()) {
+    deityFormErrors.slug = "Slug is required (e.g. maa-kali)";
+    valid = false;
+  } else if (!slugRegex.test(deityForm.slug.trim())) {
+    deityFormErrors.slug = "Slug must contain only lowercase letters, numbers, and hyphens";
+    valid = false;
+  }
+
+  if (!deityForm.nameEn.trim()) {
+    deityFormErrors.nameEn = "English deity name is required";
+    valid = false;
+  }
+
+  if (!deityForm.descEn.trim()) {
+    deityFormErrors.descEn = "English description is required";
+    valid = false;
+  }
+
+  return valid;
+};
+
+const saveDeityItem = async () => {
+  if (!validateDeityForm()) return;
+
+  savingDeity.value = true;
+  try {
+    const inputPayload = {
+      slug: deityForm.slug.trim().toLowerCase(),
+      name: { en: deityForm.nameEn.trim(), bn: deityForm.nameBn.trim() },
+      subtitle:
+        deityForm.subtitleEn.trim() || deityForm.subtitleBn.trim()
+          ? { en: deityForm.subtitleEn.trim(), bn: deityForm.subtitleBn.trim() }
+          : undefined,
+      description: { en: deityForm.descEn.trim(), bn: deityForm.descBn.trim() },
+      imageId: deityForm.imageId.trim() || undefined,
+      sortOrder: deityForm.sortOrder,
+      active: deityForm.active,
+    };
+
+    if (isEditingDeity.value && currentEditingDeityId.value !== null) {
+      await $trpc.deities.update.mutate({
+        id: currentEditingDeityId.value,
+        ...inputPayload,
+      });
+      showToast("Deity profile updated successfully!");
+    } else {
+      await $trpc.deities.create.mutate(inputPayload);
+      showToast("New deity profile created successfully!");
+    }
+
+    isDeityModalOpen.value = false;
+    await fetchDeitiesData();
+  } catch (err: any) {
+    console.error("Failed to save deity:", err);
+    showToast(err?.message || "Failed to save deity profile", "error");
+  } finally {
+    savingDeity.value = false;
+  }
+};
+
+const toggleDeityActiveStatus = async (item: FormattedDeityItem) => {
+  try {
+    const nextState = !item.active;
+    await $trpc.deities.setActive.mutate({
+      id: item.id,
+      active: nextState,
+    });
+    item.active = nextState;
+    showToast(`'${item.name.en}' is now ${nextState ? 'Active' : 'Hidden'}`);
+    await fetchDeitiesData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to toggle status", "error");
+  }
+};
+
+const moveDeityOrder = async (index: number, direction: "up" | "down") => {
+  const target = direction === "up" ? index - 1 : index + 1;
+  const list = [...filteredDeities.value];
+  if (target < 0 || target >= list.length) return;
+
+  const current = list[index];
+  const other = list[target];
+  if (!current || !other) return;
+
+  const tempOrder = current.sortOrder;
+  current.sortOrder = other.sortOrder;
+  other.sortOrder = tempOrder;
+
+  try {
+    await $trpc.deities.reorder.mutate({
+      items: [
+        { id: current.id, sortOrder: current.sortOrder },
+        { id: other.id, sortOrder: other.sortOrder },
+      ],
+    });
+    showToast("Deities reordered successfully!");
+    await fetchDeitiesData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to reorder", "error");
+  }
+};
+
+const deleteConfirmDeity = ref<FormattedDeityItem | null>(null);
+const deletingDeity = ref(false);
+
+const confirmDeleteDeity = (item: FormattedDeityItem) => {
+  deleteConfirmDeity.value = item;
+};
+
+const executeDeleteDeity = async () => {
+  if (!deleteConfirmDeity.value) return;
+
+  deletingDeity.value = true;
+  try {
+    await $trpc.deities.delete.mutate({ id: deleteConfirmDeity.value.id });
+    showToast(`Deleted '${deleteConfirmDeity.value.name.en}' successfully!`);
+    deleteConfirmDeity.value = null;
+    await fetchDeitiesData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to delete deity", "error");
+  } finally {
+    deletingDeity.value = false;
+  }
+};
+
+// =========================================================================
+// TEMPLE NOTICES STATE & METHODS
+// =========================================================================
+const noticeItems = ref<FormattedNoticeItem[]>([]);
+const loadingNotices = ref(false);
+const noticeSearchQuery = ref("");
+const noticeCategoryFilter = ref<string>("all");
+const noticeFilter = ref<"all" | "pinned" | "active" | "hidden">("all");
+
+const noticeCategories = [
+  { id: "all", label: "All Categories" },
+  { id: "general", label: "General Notice" },
+  { id: "festival", label: "Festival / Puja" },
+  { id: "timings", label: "Mandir Timings" },
+  { id: "announcement", label: "Announcement" },
+];
+
+const fetchNoticesData = async () => {
+  loadingNotices.value = true;
+  try {
+    const res = await $trpc.notices.list.query();
+    if (res && res.items) {
+      noticeItems.value = res.items;
+    }
+  } catch (err: any) {
+    console.error("Failed to load notices:", err);
+    showToast(err?.message || "Failed to load notices data", "error");
+  } finally {
+    loadingNotices.value = false;
+  }
+};
+
+const filteredNotices = computed(() => {
+  return noticeItems.value.filter((item) => {
+    // 1. Status / pinned filter
+    if (noticeFilter.value === "pinned" && !item.pinned) return false;
+    if (noticeFilter.value === "active" && !item.active) return false;
+    if (noticeFilter.value === "hidden" && item.active) return false;
+
+    // 2. Category filter
+    if (noticeCategoryFilter.value !== "all" && item.category !== noticeCategoryFilter.value) {
+      return false;
+    }
+
+    // 3. Search query filter
+    if (noticeSearchQuery.value.trim()) {
+      const q = noticeSearchQuery.value.trim().toLowerCase();
+      const matchSlug = item.slug.toLowerCase().includes(q);
+      const matchTitleEn = item.title.en.toLowerCase().includes(q);
+      const matchTitleBn = (item.title.bn || "").toLowerCase().includes(q);
+      const matchCat = item.category.toLowerCase().includes(q);
+      const matchBodyEn = (item.body.en || "").toLowerCase().includes(q);
+      const matchBodyBn = (item.body.bn || "").toLowerCase().includes(q);
+      return (
+        matchSlug ||
+        matchTitleEn ||
+        matchTitleBn ||
+        matchCat ||
+        matchBodyEn ||
+        matchBodyBn
+      );
+    }
+
+    return true;
+  });
+});
+
+const totalNoticesCount = computed(() => noticeItems.value.length);
+const pinnedNoticesCount = computed(() => noticeItems.value.filter((n) => n.pinned).length);
+const activeNoticesCount = computed(() => noticeItems.value.filter((n) => n.active).length);
+
+const isNoticeModalOpen = ref(false);
+const isEditingNotice = ref(false);
+const savingNotice = ref(false);
+const currentEditingNoticeId = ref<number | null>(null);
+const activeNoticeLangTab = ref<"en" | "bn">("en");
+const autoNoticeSlugEnabled = ref(true);
+
+const noticeForm = reactive({
+  slug: "",
+  titleEn: "",
+  titleBn: "",
+  category: "general",
+  date: "",
+  bodyEn: "",
+  bodyBn: "",
+  pinned: false,
+  active: true,
+});
+
+const noticeFormErrors = reactive({
+  slug: "",
+  titleEn: "",
+  date: "",
+  bodyEn: "",
+});
+
+const onNoticeTitleEnInput = () => {
+  if (autoNoticeSlugEnabled.value && !isEditingNotice.value) {
+    noticeForm.slug = generateSlug(noticeForm.titleEn);
+  }
+};
+
+const onNoticeSlugManualEdit = () => {
+  autoNoticeSlugEnabled.value = false;
+};
+
+const openAddNoticeModal = () => {
+  isEditingNotice.value = false;
+  currentEditingNoticeId.value = null;
+  autoNoticeSlugEnabled.value = true;
+  noticeForm.slug = "";
+  noticeForm.titleEn = "";
+  noticeForm.titleBn = "";
+  noticeForm.category = "general";
+  noticeForm.date = new Date().toISOString().slice(0, 10);
+  noticeForm.bodyEn = "";
+  noticeForm.bodyBn = "";
+  noticeForm.pinned = false;
+  noticeForm.active = true;
+  noticeFormErrors.slug = "";
+  noticeFormErrors.titleEn = "";
+  noticeFormErrors.date = "";
+  noticeFormErrors.bodyEn = "";
+  activeNoticeLangTab.value = "en";
+  isNoticeModalOpen.value = true;
+};
+
+const openEditNoticeModal = (item: FormattedNoticeItem) => {
+  isEditingNotice.value = true;
+  currentEditingNoticeId.value = item.id;
+  autoNoticeSlugEnabled.value = false;
+  noticeForm.slug = item.slug;
+  noticeForm.titleEn = item.title.en || "";
+  noticeForm.titleBn = item.title.bn || "";
+  noticeForm.category = item.category || "general";
+  noticeForm.date = item.date;
+  noticeForm.bodyEn = item.body.en || "";
+  noticeForm.bodyBn = item.body.bn || "";
+  noticeForm.pinned = item.pinned;
+  noticeForm.active = item.active;
+  noticeFormErrors.slug = "";
+  noticeFormErrors.titleEn = "";
+  noticeFormErrors.date = "";
+  noticeFormErrors.bodyEn = "";
+  activeNoticeLangTab.value = "en";
+  isNoticeModalOpen.value = true;
+};
+
+const validateNoticeForm = () => {
+  let valid = true;
+  noticeFormErrors.slug = "";
+  noticeFormErrors.titleEn = "";
+  noticeFormErrors.date = "";
+  noticeFormErrors.bodyEn = "";
+
+  const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  if (!noticeForm.slug.trim()) {
+    noticeFormErrors.slug = "Slug is required (e.g. mandir-timing-update)";
+    valid = false;
+  } else if (!slugRegex.test(noticeForm.slug.trim())) {
+    noticeFormErrors.slug = "Slug must contain only lowercase letters, numbers, and hyphens";
+    valid = false;
+  }
+
+  if (!noticeForm.titleEn.trim()) {
+    noticeFormErrors.titleEn = "English notice title is required";
+    valid = false;
+  }
+
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!noticeForm.date || !dateRegex.test(noticeForm.date)) {
+    noticeFormErrors.date = "Date must be in YYYY-MM-DD format";
+    valid = false;
+  }
+
+  if (!noticeForm.bodyEn.trim()) {
+    noticeFormErrors.bodyEn = "English notice body is required";
+    valid = false;
+  }
+
+  return valid;
+};
+
+const saveNoticeItem = async () => {
+  if (!validateNoticeForm()) return;
+
+  savingNotice.value = true;
+  try {
+    const inputPayload = {
+      slug: noticeForm.slug.trim().toLowerCase(),
+      title: { en: noticeForm.titleEn.trim(), bn: noticeForm.titleBn.trim() },
+      category: noticeForm.category.trim(),
+      date: noticeForm.date,
+      body: { en: noticeForm.bodyEn.trim(), bn: noticeForm.bodyBn.trim() },
+      pinned: noticeForm.pinned,
+      active: noticeForm.active,
+    };
+
+    if (isEditingNotice.value && currentEditingNoticeId.value !== null) {
+      await $trpc.notices.update.mutate({
+        id: currentEditingNoticeId.value,
+        ...inputPayload,
+      });
+      showToast("Notice updated successfully!");
+    } else {
+      await $trpc.notices.create.mutate(inputPayload);
+      showToast("New notice published successfully!");
+    }
+
+    isNoticeModalOpen.value = false;
+    await fetchNoticesData();
+  } catch (err: any) {
+    console.error("Failed to save notice:", err);
+    showToast(err?.message || "Failed to save notice", "error");
+  } finally {
+    savingNotice.value = false;
+  }
+};
+
+const toggleNoticePinnedStatus = async (item: FormattedNoticeItem) => {
+  try {
+    const nextState = !item.pinned;
+    await $trpc.notices.setPinned.mutate({
+      id: item.id,
+      pinned: nextState,
+    });
+    item.pinned = nextState;
+    showToast(`'${item.title.en}' is now ${nextState ? 'Pinned to top' : 'Unpinned'}`);
+    await fetchNoticesData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to toggle pin", "error");
+  }
+};
+
+const toggleNoticeActiveStatus = async (item: FormattedNoticeItem) => {
+  try {
+    const nextState = !item.active;
+    await $trpc.notices.setActive.mutate({
+      id: item.id,
+      active: nextState,
+    });
+    item.active = nextState;
+    showToast(`'${item.title.en}' is now ${nextState ? 'Active' : 'Hidden'}`);
+    await fetchNoticesData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to toggle status", "error");
+  }
+};
+
+const deleteConfirmNotice = ref<FormattedNoticeItem | null>(null);
+const deletingNotice = ref(false);
+
+const confirmDeleteNotice = (item: FormattedNoticeItem) => {
+  deleteConfirmNotice.value = item;
+};
+
+const executeDeleteNotice = async () => {
+  if (!deleteConfirmNotice.value) return;
+
+  deletingNotice.value = true;
+  try {
+    await $trpc.notices.delete.mutate({ id: deleteConfirmNotice.value.id });
+    showToast(`Deleted '${deleteConfirmNotice.value.title.en}' successfully!`);
+    deleteConfirmNotice.value = null;
+    await fetchNoticesData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to delete notice", "error");
+  } finally {
+    deletingNotice.value = false;
+  }
+};
+
+// =========================================================================
+// PUJA BOOKINGS MANAGER STATE & METHODS
+// =========================================================================
+interface AdminBookingItem {
+  id: number;
+  ref: string;
+  userId: string | null;
+  pujaId: number | null;
+  name: string;
+  phone: string;
+  email: string | null;
+  gotra: string | null;
+  preferredDate: string;
+  note: string | null;
+  status: BookingStatus;
+  handledBy: string | null;
+  adminNote: string | null;
+  createdAt: number;
+  updatedAt: number;
+  pujaName?: { en: string; bn: string };
+  pujaSlug?: string;
+  pujaPrice?: number;
+}
+
+const bookingItems = ref<AdminBookingItem[]>([]);
+const loadingBookings = ref(false);
+const bookingSearchQuery = ref("");
+const bookingStatusFilter = ref<"all" | BookingStatus>("all");
+
+const fetchBookingsData = async () => {
+  loadingBookings.value = true;
+  try {
+    const res = await $trpc.bookings.list.query();
+    if (res && res.items) {
+      bookingItems.value = res.items as AdminBookingItem[];
+    }
+  } catch (err: any) {
+    console.error("Failed to load bookings:", err);
+    showToast(err?.message || "Failed to load bookings data", "error");
+  } finally {
+    loadingBookings.value = false;
+  }
+};
+
+const filteredBookings = computed(() => {
+  return bookingItems.value.filter((item) => {
+    // 1. Status filter
+    if (bookingStatusFilter.value !== "all" && item.status !== bookingStatusFilter.value) {
+      return false;
+    }
+
+    // 2. Search query filter
+    if (bookingSearchQuery.value.trim()) {
+      const q = bookingSearchQuery.value.trim().toLowerCase();
+      const matchRef = item.ref.toLowerCase().includes(q);
+      const matchName = item.name.toLowerCase().includes(q);
+      const matchPhone = item.phone.toLowerCase().includes(q);
+      const matchEmail = (item.email || "").toLowerCase().includes(q);
+      const matchGotra = (item.gotra || "").toLowerCase().includes(q);
+      const matchPuja = (item.pujaName?.en || "").toLowerCase().includes(q);
+      return (
+        matchRef ||
+        matchName ||
+        matchPhone ||
+        matchEmail ||
+        matchGotra ||
+        matchPuja
+      );
+    }
+
+    return true;
+  });
+});
+
+const totalBookingsCount = computed(() => bookingItems.value.length);
+const newBookingsCount = computed(() => bookingItems.value.filter((b) => b.status === "new").length);
+const confirmedBookingsCount = computed(() => bookingItems.value.filter((b) => b.status === "confirmed").length);
+const completedBookingsCount = computed(() => bookingItems.value.filter((b) => b.status === "completed").length);
+const cancelledBookingsCount = computed(() => bookingItems.value.filter((b) => b.status === "cancelled").length);
+
+// Admin note / status action modal
+const isBookingNoteModalOpen = ref(false);
+const activeBookingNoteItem = ref<AdminBookingItem | null>(null);
+const bookingAdminNoteInput = ref("");
+const updatingBookingStatus = ref(false);
+
+const openBookingNoteModal = (item: AdminBookingItem) => {
+  activeBookingNoteItem.value = item;
+  bookingAdminNoteInput.value = item.adminNote || "";
+  isBookingNoteModalOpen.value = true;
+};
+
+const saveBookingAdminNote = async () => {
+  if (!activeBookingNoteItem.value) return;
+
+  updatingBookingStatus.value = true;
+  try {
+    await $trpc.bookings.updateStatus.mutate({
+      id: activeBookingNoteItem.value.id,
+      status: activeBookingNoteItem.value.status,
+      adminNote: bookingAdminNoteInput.value.trim(),
+    });
+    showToast("Admin note saved successfully!");
+    isBookingNoteModalOpen.value = false;
+    await fetchBookingsData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to save note", "error");
+  } finally {
+    updatingBookingStatus.value = false;
+  }
+};
+
+const changeBookingStatus = async (item: AdminBookingItem, newStatus: BookingStatus) => {
+  try {
+    await $trpc.bookings.updateStatus.mutate({
+      id: item.id,
+      status: newStatus,
+      adminNote: item.adminNote || undefined,
+    });
+    item.status = newStatus;
+    showToast(`Booking ${item.ref} marked as ${newStatus}!`);
+    await fetchBookingsData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to update booking status", "error");
+  }
+};
+
+const deleteConfirmBooking = ref<AdminBookingItem | null>(null);
+const deletingBooking = ref(false);
+
+const confirmDeleteBooking = (item: AdminBookingItem) => {
+  deleteConfirmBooking.value = item;
+};
+
+const executeDeleteBooking = async () => {
+  if (!deleteConfirmBooking.value) return;
+
+  deletingBooking.value = true;
+  try {
+    await $trpc.bookings.delete.mutate({ id: deleteConfirmBooking.value.id });
+    showToast(`Booking ${deleteConfirmBooking.value.ref} deleted successfully!`);
+    deleteConfirmBooking.value = null;
+    await fetchBookingsData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to delete booking", "error");
+  } finally {
+    deletingBooking.value = false;
+  }
+};
 </script>
 
 <template>
@@ -740,7 +1438,13 @@ const executeDeletePuja = async () => {
             <span class="crumb-root">Sanctum Console</span>
             <span class="crumb-sep">/</span>
             <span class="crumb-active">
-              {{ activeModule === 'dashboard' ? 'Overview Dashboard' : 'Daily Schedule' }}
+              {{
+                activeModule === 'dashboard' ? 'Overview Dashboard' :
+                activeModule === 'schedule' ? 'Daily Schedule' :
+                activeModule === 'pujas' ? 'Pujas & Services' :
+                activeModule === 'deities' ? 'Deities & Shrines' :
+                activeModule === 'notices' ? 'Temple Notices' : 'Puja Bookings'
+              }}
             </span>
           </div>
         </div>
@@ -784,6 +1488,7 @@ const executeDeletePuja = async () => {
 
           <!-- KPI Grid -->
           <div class="kpi-grid">
+            <!-- 1. Daily Schedule -->
             <div class="kpi-card" @click="activeModule = 'schedule'">
               <div class="kpi-icon-wrap gold-icon">🔔</div>
               <div class="kpi-content">
@@ -795,6 +1500,56 @@ const executeDeletePuja = async () => {
               </div>
             </div>
 
+            <!-- 2. Pujas & Services -->
+            <div class="kpi-card" @click="activeModule = 'pujas'">
+              <div class="kpi-icon-wrap amber-icon">🪔</div>
+              <div class="kpi-content">
+                <span class="kpi-label">Pujas & Services</span>
+                <span class="kpi-val">{{ totalPujasCount }}</span>
+                <span class="kpi-trend">
+                  <span class="trend-up">{{ activePujasCount }} Active</span> • {{ bookablePujasCount }} Bookable
+                </span>
+              </div>
+            </div>
+
+            <!-- 3. Deities & Shrines -->
+            <div class="kpi-card" @click="activeModule = 'deities'">
+              <div class="kpi-icon-wrap gold-icon">🕉️</div>
+              <div class="kpi-content">
+                <span class="kpi-label">Deities & Shrines</span>
+                <span class="kpi-val">{{ totalDeitiesCount }}</span>
+                <span class="kpi-trend">
+                  <span class="trend-up">{{ activeDeitiesCount }} Active</span> • {{ hiddenDeitiesCount }} Hidden
+                </span>
+              </div>
+            </div>
+
+            <!-- 4. Temple Notices -->
+            <div class="kpi-card" @click="activeModule = 'notices'">
+              <div class="kpi-icon-wrap blue-icon">📢</div>
+              <div class="kpi-content">
+                <span class="kpi-label">Temple Notices</span>
+                <span class="kpi-val">{{ totalNoticesCount }}</span>
+                <span class="kpi-trend">
+                  <span class="trend-up">{{ pinnedNoticesCount }} Pinned</span> • {{ activeNoticesCount }} Active
+                </span>
+              </div>
+            </div>
+
+            <!-- 5. Puja Bookings -->
+            <div class="kpi-card" @click="activeModule = 'bookings'">
+              <div class="kpi-icon-wrap" :class="newBookingsCount > 0 ? 'amber-icon' : 'green-icon'">📋</div>
+              <div class="kpi-content">
+                <span class="kpi-label">Puja Bookings</span>
+                <span class="kpi-val">{{ totalBookingsCount }}</span>
+                <span class="kpi-trend">
+                  <span v-if="newBookingsCount > 0" class="trend-amber font-bold">⚡ {{ newBookingsCount }} New Requests</span>
+                  <span v-else class="text-green-400">All Requests Handled</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- 6. Next Aarti -->
             <div class="kpi-card">
               <div class="kpi-icon-wrap blue-icon">⏱️</div>
               <div class="kpi-content">
@@ -805,15 +1560,6 @@ const executeDeletePuja = async () => {
                 <span class="kpi-trend">
                   {{ nextAartiInfo ? `${nextAartiInfo.item.time} (${nextAartiInfo.isTomorrow ? 'Tomorrow' : 'Today'})` : 'Synchronized' }}
                 </span>
-              </div>
-            </div>
-
-            <div class="kpi-card">
-              <div class="kpi-icon-wrap green-icon">🛡️</div>
-              <div class="kpi-content">
-                <span class="kpi-label">Backend Architecture</span>
-                <span class="kpi-val">D1 + R2</span>
-                <span class="kpi-trend text-green-400">tRPC & Cache Active</span>
               </div>
             </div>
           </div>
@@ -829,9 +1575,21 @@ const executeDeletePuja = async () => {
                 <span class="action-btn-icon">🔔</span>
                 <span>Manage Daily Schedule</span>
               </button>
-              <button type="button" class="action-btn" @click="openAddModal">
-                <span class="action-btn-icon">➕</span>
-                <span>Add New Daily Ritual</span>
+              <button type="button" class="action-btn" @click="activeModule = 'pujas'">
+                <span class="action-btn-icon">🪔</span>
+                <span>Manage Pujas & Services</span>
+              </button>
+              <button type="button" class="action-btn" @click="activeModule = 'deities'">
+                <span class="action-btn-icon">🕉️</span>
+                <span>Manage Deities & Shrines</span>
+              </button>
+              <button type="button" class="action-btn" @click="activeModule = 'notices'">
+                <span class="action-btn-icon">📢</span>
+                <span>Notice Board</span>
+              </button>
+              <button type="button" class="action-btn" @click="activeModule = 'bookings'">
+                <span class="action-btn-icon">📋</span>
+                <span>Review Puja Bookings</span>
               </button>
             </div>
           </div>
@@ -1231,6 +1989,567 @@ const executeDeletePuja = async () => {
                     class="btn-action-del"
                     title="Delete puja offering"
                     @click="confirmDeletePuja(item)"
+                  >
+                    <span>🗑️</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- TAB 4: DEITIES & SHRINES CRUD MANAGER                           -->
+        <!-- =============================================================== -->
+        <div v-else-if="activeModule === 'deities'" class="tab-pane">
+          <!-- Module Header -->
+          <div class="module-header-row">
+            <div>
+              <h1 class="module-title">Deities & Sacred Shrines</h1>
+              <p class="module-subtitle">
+                Manage temple deity profiles, sacred history, divine attributes, darshan images, and display sequencing.
+              </p>
+            </div>
+            <div class="module-header-actions">
+              <button type="button" class="btn-refresh" @click="fetchDeitiesData" title="Refresh deities list">
+                ↻ Refresh
+              </button>
+              <button type="button" class="btn-add-primary" @click="openAddDeityModal">
+                <span>+ Add Deity Profile</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Filters Bar -->
+          <div class="filters-bar">
+            <div class="search-box">
+              <span class="search-icon">🔍</span>
+              <input
+                type="text"
+                v-model="deitySearchQuery"
+                class="search-input"
+                placeholder="Search deities by name, subtitle, description, or slug..."
+              />
+              <button v-if="deitySearchQuery" class="clear-search-btn" @click="deitySearchQuery = ''">&times;</button>
+            </div>
+
+            <div class="filter-pills">
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': deityFilter === 'all' }"
+                @click="deityFilter = 'all'"
+              >
+                All ({{ totalDeitiesCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': deityFilter === 'active' }"
+                @click="deityFilter = 'active'"
+              >
+                Active ({{ activeDeitiesCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': deityFilter === 'hidden' }"
+                @click="deityFilter = 'hidden'"
+              >
+                Hidden ({{ hiddenDeitiesCount }})
+              </button>
+            </div>
+          </div>
+
+          <!-- Deities Table / Card List -->
+          <div class="schedule-table-card">
+            <div v-if="loadingDeities" class="loading-state">
+              <div class="spinner"></div>
+              <span>Loading sacred deity profiles from Sanctum database...</span>
+            </div>
+
+            <div v-else-if="filteredDeities.length === 0" class="empty-state">
+              <span class="empty-icon">🕉️</span>
+              <h3 class="empty-title">No deities found</h3>
+              <p class="empty-desc">
+                {{ deitySearchQuery ? 'No deities match your search filter.' : 'No deities have been configured yet.' }}
+              </p>
+              <button type="button" class="btn-add-primary" @click="openAddDeityModal">
+                <span>+ Add First Deity</span>
+              </button>
+            </div>
+
+            <div v-else class="deity-items-list">
+              <div
+                v-for="(item, idx) in filteredDeities"
+                :key="item.id"
+                class="deity-row-item"
+                :class="{ 'item-inactive': !item.active }"
+              >
+                <!-- Reorder Controls -->
+                <div class="reorder-col">
+                  <button
+                    type="button"
+                    class="btn-reorder"
+                    :disabled="idx === 0"
+                    title="Move higher"
+                    @click="moveDeityOrder(idx, 'up')"
+                  >
+                    ▲
+                  </button>
+                  <span class="sort-order-num">{{ item.sortOrder }}</span>
+                  <button
+                    type="button"
+                    class="btn-reorder"
+                    :disabled="idx === filteredDeities.length - 1"
+                    title="Move lower"
+                    @click="moveDeityOrder(idx, 'down')"
+                  >
+                    ▼
+                  </button>
+                </div>
+
+                <!-- Deity Avatar / Icon -->
+                <div class="deity-avatar-col">
+                  <img
+                    v-if="item.imageId && (item.imageId.startsWith('http') || item.imageId.startsWith('/'))"
+                    :src="item.imageId"
+                    :alt="item.name.en"
+                    class="deity-avatar-img"
+                  />
+                  <div v-else class="deity-avatar-placeholder">
+                    <span>🕉️</span>
+                  </div>
+                </div>
+
+                <!-- Details Column -->
+                <div class="deity-details-col">
+                  <div class="title-row">
+                    <h3 class="deity-title-en">{{ item.name.en }}</h3>
+                    <span v-if="item.name.bn" class="deity-title-bn">{{ item.name.bn }}</span>
+                    <span class="deity-slug-pill">/{{ item.slug }}</span>
+                  </div>
+                  <div v-if="item.subtitle?.en || item.subtitle?.bn" class="deity-sub-row">
+                    <span class="deity-subtitle-text">{{ item.subtitle?.en }}</span>
+                    <span v-if="item.subtitle?.bn" class="deity-subtitle-bn">({{ item.subtitle?.bn }})</span>
+                  </div>
+                  <p class="deity-desc-en">{{ item.description.en }}</p>
+                  <p v-if="item.description.bn" class="deity-desc-bn">{{ item.description.bn }}</p>
+                </div>
+
+                <!-- Active Toggle -->
+                <div class="toggle-col">
+                  <label class="switch-toggle" :title="item.active ? 'Click to hide from public' : 'Click to make active'">
+                    <input
+                      type="checkbox"
+                      :checked="item.active"
+                      @change="toggleDeityActiveStatus(item)"
+                    />
+                    <span class="switch-slider round"></span>
+                  </label>
+                  <span class="status-caption" :class="item.active ? 'caption-active' : 'caption-hidden'">
+                    {{ item.active ? 'Active' : 'Hidden' }}
+                  </span>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="actions-col">
+                  <button
+                    type="button"
+                    class="btn-action-edit"
+                    title="Edit deity details"
+                    @click="openEditDeityModal(item)"
+                  >
+                    <span>✏️ Edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-action-del"
+                    title="Delete deity"
+                    @click="confirmDeleteDeity(item)"
+                  >
+                    <span>🗑️</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- TAB 5: TEMPLE NOTICES CRUD MANAGER                             -->
+        <!-- =============================================================== -->
+        <div v-else-if="activeModule === 'notices'" class="tab-pane">
+          <!-- Module Header -->
+          <div class="module-header-row">
+            <div>
+              <h1 class="module-title">Temple Notice Board</h1>
+              <p class="module-subtitle">
+                Publish and manage mandir announcements, puja guidelines, and official circulars for the temple website.
+              </p>
+            </div>
+            <div class="module-header-actions">
+              <button type="button" class="btn-refresh" @click="fetchNoticesData" title="Refresh notices list">
+                ↻ Refresh
+              </button>
+              <button type="button" class="btn-add-primary" @click="openAddNoticeModal">
+                <span>+ Publish Notice</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Filters Bar -->
+          <div class="filters-bar">
+            <div class="search-box">
+              <span class="search-icon">🔍</span>
+              <input
+                type="text"
+                v-model="noticeSearchQuery"
+                class="search-input"
+                placeholder="Search notices by title, category, or body text..."
+              />
+              <button v-if="noticeSearchQuery" class="clear-search-btn" @click="noticeSearchQuery = ''">&times;</button>
+            </div>
+
+            <div class="filter-pills">
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': noticeFilter === 'all' }"
+                @click="noticeFilter = 'all'"
+              >
+                All ({{ totalNoticesCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': noticeFilter === 'pinned' }"
+                @click="noticeFilter = 'pinned'"
+              >
+                📌 Pinned ({{ pinnedNoticesCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': noticeFilter === 'active' }"
+                @click="noticeFilter = 'active'"
+              >
+                Active ({{ activeNoticesCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': noticeFilter === 'hidden' }"
+                @click="noticeFilter = 'hidden'"
+              >
+                Hidden
+              </button>
+            </div>
+          </div>
+
+          <!-- Category Pills -->
+          <div class="category-pills-row">
+            <span class="category-label">Category Filter:</span>
+            <button
+              v-for="cat in noticeCategories"
+              :key="cat.id"
+              type="button"
+              class="cat-chip"
+              :class="{ 'cat-chip-active': noticeCategoryFilter === cat.id }"
+              @click="noticeCategoryFilter = cat.id"
+            >
+              {{ cat.label }}
+            </button>
+          </div>
+
+          <!-- Notices Table / Card List -->
+          <div class="schedule-table-card">
+            <div v-if="loadingNotices" class="loading-state">
+              <div class="spinner"></div>
+              <span>Loading notice board entries from Sanctum database...</span>
+            </div>
+
+            <div v-else-if="filteredNotices.length === 0" class="empty-state">
+              <span class="empty-icon">📢</span>
+              <h3 class="empty-title">No notices found</h3>
+              <p class="empty-desc">
+                {{ noticeSearchQuery ? 'No notices match your search filter.' : 'No notices have been published yet.' }}
+              </p>
+              <button type="button" class="btn-add-primary" @click="openAddNoticeModal">
+                <span>+ Publish First Notice</span>
+              </button>
+            </div>
+
+            <div v-else class="notice-items-list">
+              <div
+                v-for="item in filteredNotices"
+                :key="item.id"
+                class="notice-row-item"
+                :class="{ 'item-pinned': item.pinned, 'item-inactive': !item.active }"
+              >
+                <!-- Notice Date & Category Col -->
+                <div class="notice-meta-col">
+                  <span class="notice-date-badge">📅 {{ item.date }}</span>
+                  <span class="notice-cat-tag">{{ item.category }}</span>
+                  <span v-if="item.pinned" class="pinned-indicator-chip">📌 PINNED</span>
+                </div>
+
+                <!-- Notice Content Col -->
+                <div class="notice-details-col">
+                  <div class="title-row">
+                    <h3 class="notice-title-en">{{ item.title.en }}</h3>
+                    <span v-if="item.title.bn" class="notice-title-bn">{{ item.title.bn }}</span>
+                    <span class="notice-slug-pill">/{{ item.slug }}</span>
+                  </div>
+                  <p class="notice-body-en">{{ item.body.en }}</p>
+                  <p v-if="item.body.bn" class="notice-body-bn">{{ item.body.bn }}</p>
+                </div>
+
+                <!-- Toggles Col (Pin & Active) -->
+                <div class="notice-controls-col">
+                  <!-- Pin Button -->
+                  <button
+                    type="button"
+                    class="btn-pin-toggle"
+                    :class="{ 'pin-active': item.pinned }"
+                    :title="item.pinned ? 'Click to unpin' : 'Click to pin to top of notice board'"
+                    @click="toggleNoticePinnedStatus(item)"
+                  >
+                    <span>{{ item.pinned ? '📌 Pinned' : '📍 Pin' }}</span>
+                  </button>
+
+                  <!-- Active Toggle -->
+                  <div class="mini-toggle-row">
+                    <label class="switch-toggle" :title="item.active ? 'Click to hide' : 'Click to show'">
+                      <input
+                        type="checkbox"
+                        :checked="item.active"
+                        @change="toggleNoticeActiveStatus(item)"
+                      />
+                      <span class="switch-slider round"></span>
+                    </label>
+                    <span class="status-caption" :class="item.active ? 'caption-active' : 'caption-hidden'">
+                      {{ item.active ? 'Active' : 'Hidden' }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="actions-col">
+                  <button
+                    type="button"
+                    class="btn-action-edit"
+                    title="Edit notice"
+                    @click="openEditNoticeModal(item)"
+                  >
+                    <span>✏️ Edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-action-del"
+                    title="Delete notice"
+                    @click="confirmDeleteNotice(item)"
+                  >
+                    <span>🗑️</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- TAB 6: PUJA BOOKINGS MANAGER                                    -->
+        <!-- =============================================================== -->
+        <div v-else-if="activeModule === 'bookings'" class="tab-pane">
+          <!-- Module Header -->
+          <div class="module-header-row">
+            <div>
+              <h1 class="module-title">Devotee Puja Booking Requests</h1>
+              <p class="module-subtitle">
+                Review and process puja booking requests submitted by devotees online. Confirm dates, record priest notes, and update statuses.
+              </p>
+            </div>
+            <div class="module-header-actions">
+              <button type="button" class="btn-refresh" @click="fetchBookingsData" title="Refresh bookings list">
+                ↻ Refresh
+              </button>
+            </div>
+          </div>
+
+          <!-- Filters Bar -->
+          <div class="filters-bar">
+            <div class="search-box">
+              <span class="search-icon">🔍</span>
+              <input
+                type="text"
+                v-model="bookingSearchQuery"
+                class="search-input"
+                placeholder="Search by devotee name, phone, ref code, or gotra..."
+              />
+              <button v-if="bookingSearchQuery" class="clear-search-btn" @click="bookingSearchQuery = ''">&times;</button>
+            </div>
+
+            <div class="filter-pills">
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': bookingStatusFilter === 'all' }"
+                @click="bookingStatusFilter = 'all'"
+              >
+                All ({{ totalBookingsCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': bookingStatusFilter === 'new' }"
+                @click="bookingStatusFilter = 'new'"
+              >
+                ⚡ New ({{ newBookingsCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': bookingStatusFilter === 'confirmed' }"
+                @click="bookingStatusFilter = 'confirmed'"
+              >
+                Confirmed ({{ confirmedBookingsCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': bookingStatusFilter === 'completed' }"
+                @click="bookingStatusFilter = 'completed'"
+              >
+                Completed ({{ completedBookingsCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': bookingStatusFilter === 'cancelled' }"
+                @click="bookingStatusFilter = 'cancelled'"
+              >
+                Cancelled ({{ cancelledBookingsCount }})
+              </button>
+            </div>
+          </div>
+
+          <!-- Bookings Table / Card List -->
+          <div class="schedule-table-card">
+            <div v-if="loadingBookings" class="loading-state">
+              <div class="spinner"></div>
+              <span>Loading puja bookings from Sanctum database...</span>
+            </div>
+
+            <div v-else-if="filteredBookings.length === 0" class="empty-state">
+              <span class="empty-icon">📋</span>
+              <h3 class="empty-title">No booking requests found</h3>
+              <p class="empty-desc">
+                {{ bookingSearchQuery ? 'No booking records match your search filter.' : 'No devotee puja bookings in this category.' }}
+              </p>
+            </div>
+
+            <div v-else class="booking-items-list">
+              <div
+                v-for="item in filteredBookings"
+                :key="item.id"
+                class="booking-row-item"
+                :class="`booking-status-${item.status}`"
+              >
+                <!-- Reference Badge & Date Col -->
+                <div class="booking-ref-col">
+                  <span class="booking-ref-pill">{{ item.ref }}</span>
+                  <span class="booking-created-date">Submitted: {{ new Date(item.createdAt).toLocaleDateString() }}</span>
+                </div>
+
+                <!-- Devotee Contact Info Col -->
+                <div class="booking-devotee-col">
+                  <div class="devotee-name-row">
+                    <span class="devotee-name">{{ item.name }}</span>
+                    <span v-if="item.gotra" class="devotee-gotra">Gotra: {{ item.gotra }}</span>
+                  </div>
+                  <div class="devotee-contact-row">
+                    <a :href="`tel:${item.phone}`" class="contact-link phone-link">📞 {{ item.phone }}</a>
+                    <a v-if="item.email" :href="`mailto:${item.email}`" class="contact-link email-link">✉️ {{ item.email }}</a>
+                  </div>
+                </div>
+
+                <!-- Puja Details & Preferred Date Col -->
+                <div class="booking-puja-col">
+                  <div class="puja-booked-badge">
+                    <span class="puja-booked-name">{{ item.pujaName?.en || 'Puja / Sacred Sankalpa' }}</span>
+                    <span v-if="item.pujaPrice" class="puja-booked-price">৳{{ item.pujaPrice }}</span>
+                  </div>
+                  <div class="preferred-date-chip">
+                    <span>📅 Preferred Date:</span>
+                    <strong>{{ item.preferredDate }}</strong>
+                  </div>
+                  <div v-if="item.note" class="devotee-note-box">
+                    <span class="note-quote">“{{ item.note }}”</span>
+                  </div>
+                </div>
+
+                <!-- Status & Admin Notes Col -->
+                <div class="booking-status-col">
+                  <span class="booking-status-pill" :class="`pill-${item.status}`">
+                    {{ item.status.toUpperCase() }}
+                  </span>
+                  <span v-if="item.handledBy" class="handled-by-text">By: {{ item.handledBy }}</span>
+                  <div v-if="item.adminNote" class="admin-note-preview" :title="item.adminNote">
+                    <span>Note: {{ item.adminNote }}</span>
+                  </div>
+                </div>
+
+                <!-- Workflow Actions Col -->
+                <div class="booking-actions-col">
+                  <!-- Quick Status Actions -->
+                  <button
+                    v-if="item.status === 'new'"
+                    type="button"
+                    class="btn-booking-confirm"
+                    title="Confirm this booking request"
+                    @click="changeBookingStatus(item, 'confirmed')"
+                  >
+                    ✓ Confirm
+                  </button>
+
+                  <button
+                    v-if="item.status === 'confirmed'"
+                    type="button"
+                    class="btn-booking-complete"
+                    title="Mark ritual as completed"
+                    @click="changeBookingStatus(item, 'completed')"
+                  >
+                    ✓ Complete
+                  </button>
+
+                  <button
+                    v-if="item.status !== 'cancelled' && item.status !== 'completed'"
+                    type="button"
+                    class="btn-booking-cancel"
+                    title="Cancel booking"
+                    @click="changeBookingStatus(item, 'cancelled')"
+                  >
+                    ✕ Cancel
+                  </button>
+
+                  <!-- Internal Note Button -->
+                  <button
+                    type="button"
+                    class="btn-booking-note"
+                    title="Add / edit priest admin note"
+                    @click="openBookingNoteModal(item)"
+                  >
+                    📝 Note
+                  </button>
+
+                  <!-- Delete (Admin) -->
+                  <button
+                    v-if="isAdmin"
+                    type="button"
+                    class="btn-action-del"
+                    title="Delete record"
+                    @click="confirmDeleteBooking(item)"
                   >
                     <span>🗑️</span>
                   </button>
@@ -1680,6 +2999,480 @@ const executeDeletePuja = async () => {
             @click="executeDeletePuja"
           >
             <span>{{ deletingPuja ? 'Deleting...' : 'Yes, Delete Puja' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- ADD / EDIT DEITY MODAL DIALOG                                       -->
+    <!-- =================================================================== -->
+    <div v-if="isDeityModalOpen" class="modal-backdrop" @click.self="isDeityModalOpen = false">
+      <div class="modal-dialog modal-dialog-lg">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-tag">{{ isEditingDeity ? 'EDIT DEITY' : 'NEW DEITY PROFILE' }}</span>
+            <h2 class="modal-title">{{ isEditingDeity ? 'Edit Deity Profile' : 'Add New Deity Profile' }}</h2>
+          </div>
+          <button type="button" class="modal-close-btn" @click="isDeityModalOpen = false">&times;</button>
+        </div>
+
+        <form @submit.prevent="saveDeityItem" class="modal-form">
+          <div class="modal-body">
+            <!-- 1. SLUG & IMAGE URL ROW -->
+            <div class="form-row-2">
+              <div class="form-group flex-1">
+                <label class="form-label">
+                  URL Slug <span class="required-star">*</span>
+                </label>
+                <div class="input-with-prefix">
+                  <span class="input-prefix">/</span>
+                  <input
+                    type="text"
+                    v-model="deityForm.slug"
+                    class="form-input font-mono"
+                    placeholder="maa-kali"
+                    @input="onDeitySlugManualEdit"
+                  />
+                </div>
+                <span v-if="deityFormErrors.slug" class="error-msg">{{ deityFormErrors.slug }}</span>
+                <span class="hint-text">Identifier (lowercase letters & hyphens)</span>
+              </div>
+
+              <div class="form-group flex-1">
+                <label class="form-label">Darshan Image (URL or Media Key)</label>
+                <input
+                  type="text"
+                  v-model="deityForm.imageId"
+                  class="form-input"
+                  placeholder="e.g. /images/deities/kali.jpg or https://..."
+                />
+                <span class="hint-text">Path to deity portrait or darshan photo</span>
+              </div>
+            </div>
+
+            <!-- 2. BILINGUAL CONTENT TABS -->
+            <div class="lang-tab-bar">
+              <button
+                type="button"
+                class="lang-tab-btn"
+                :class="{ 'lang-tab-active': activeDeityLangTab === 'en' }"
+                @click="activeDeityLangTab = 'en'"
+              >
+                <span>English Content</span>
+                <span class="lang-req-dot">• Required</span>
+              </button>
+              <button
+                type="button"
+                class="lang-tab-btn"
+                :class="{ 'lang-tab-active': activeDeityLangTab === 'bn' }"
+                @click="activeDeityLangTab = 'bn'"
+              >
+                <span>বাংলা বিবরণ</span>
+                <span class="lang-opt-badge">(ঐচ্ছিক)</span>
+              </button>
+            </div>
+
+            <!-- English Fields -->
+            <div v-show="activeDeityLangTab === 'en'" class="lang-fields-box">
+              <div class="form-group">
+                <label class="form-label">
+                  Deity Name (English) <span class="required-star">*</span>
+                </label>
+                <input
+                  type="text"
+                  v-model="deityForm.nameEn"
+                  class="form-input"
+                  placeholder="e.g. Maa Kali, Lord Shiva, Radha Krishna"
+                  @input="onDeityNameEnInput"
+                />
+                <span v-if="deityFormErrors.nameEn" class="error-msg">{{ deityFormErrors.nameEn }}</span>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Subtitle / Divine Epithet (English)</label>
+                <input
+                  type="text"
+                  v-model="deityForm.subtitleEn"
+                  class="form-input"
+                  placeholder="e.g. The Presiding Divine Mother of Golpahar"
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">
+                  Sacred Significance & History (English) <span class="required-star">*</span>
+                </label>
+                <textarea
+                  v-model="deityForm.descEn"
+                  class="form-textarea"
+                  rows="4"
+                  placeholder="Embodiment of Shakti, wisdom, and eternal protection..."
+                ></textarea>
+                <span v-if="deityFormErrors.descEn" class="error-msg">{{ deityFormErrors.descEn }}</span>
+              </div>
+            </div>
+
+            <!-- Bengali Fields -->
+            <div v-show="activeDeityLangTab === 'bn'" class="lang-fields-box">
+              <div class="form-group">
+                <label class="form-label">বিগ্রহের নাম (বাংলা)</label>
+                <input
+                  type="text"
+                  v-model="deityForm.nameBn"
+                  class="form-input"
+                  placeholder="যেমন: মা কালী, শ্রী মহাদেব শিব, রাধাকৃষ্ণ"
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">মহিমা ও উপাধি (বাংলা)</label>
+                <input
+                  type="text"
+                  v-model="deityForm.subtitleBn"
+                  class="form-input"
+                  placeholder="যেমন: গোলপাহাড় মহাশ্মশানের প্রধান অধিষ্ঠাত্রী দেবী"
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">বিগ্রহের মাহাত্ম্য ও ইতিহাস (বাংলা)</label>
+                <textarea
+                  v-model="deityForm.descBn"
+                  class="form-textarea"
+                  rows="4"
+                  placeholder="শক্তিরূপা ও করুণাময়ী জগতের পালনকর্ত্রী..."
+                ></textarea>
+              </div>
+            </div>
+
+            <!-- 3. SORT ORDER & ACTIVE STATUS -->
+            <div class="form-row-2 align-center">
+              <div class="form-group flex-1">
+                <label class="form-label">Display Order</label>
+                <input
+                  type="number"
+                  v-model.number="deityForm.sortOrder"
+                  class="form-input"
+                  min="0"
+                />
+                <span class="hint-text">Sequence on the temple deities darshan carousel</span>
+              </div>
+
+              <div class="form-group flex-1 checkbox-group">
+                <label class="form-label">Visibility Status</label>
+                <label class="checkbox-container">
+                  <input type="checkbox" v-model="deityForm.active" />
+                  <span class="checkbox-label-text">
+                    {{ deityForm.active ? 'Active (Visible on public portal)' : 'Hidden (Draft only)' }}
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-cancel" @click="isDeityModalOpen = false">Cancel</button>
+            <button type="submit" class="btn-save" :disabled="savingDeity">
+              <span>{{ savingDeity ? 'Saving...' : isEditingDeity ? 'Update Deity' : 'Save Deity' }}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- DELETE DEITY CONFIRMATION MODAL                                     -->
+    <!-- =================================================================== -->
+    <div v-if="deleteConfirmDeity" class="modal-backdrop" @click.self="deleteConfirmDeity = null">
+      <div class="modal-dialog modal-dialog-sm">
+        <div class="modal-header">
+          <h2 class="modal-title text-red-500">Confirm Deity Deletion</h2>
+          <button type="button" class="modal-close-btn" @click="deleteConfirmDeity = null">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="confirm-text">
+            Are you sure you want to delete <strong>{{ deleteConfirmDeity.name.en }}</strong>?
+          </p>
+          <p class="confirm-warning">
+            This will permanently remove this deity profile from the temple portal and record an audit log.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-cancel" @click="deleteConfirmDeity = null">Cancel</button>
+          <button
+            type="button"
+            class="btn-delete-confirm"
+            :disabled="deletingDeity"
+            @click="executeDeleteDeity"
+          >
+            <span>{{ deletingDeity ? 'Deleting...' : 'Yes, Delete' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- ADD / EDIT NOTICE MODAL DIALOG                                      -->
+    <!-- =================================================================== -->
+    <div v-if="isNoticeModalOpen" class="modal-backdrop" @click.self="isNoticeModalOpen = false">
+      <div class="modal-dialog modal-dialog-lg">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-tag">{{ isEditingNotice ? 'EDIT NOTICE' : 'NEW NOTICE' }}</span>
+            <h2 class="modal-title">{{ isEditingNotice ? 'Edit Temple Notice' : 'Publish New Notice' }}</h2>
+          </div>
+          <button type="button" class="modal-close-btn" @click="isNoticeModalOpen = false">&times;</button>
+        </div>
+
+        <form @submit.prevent="saveNoticeItem" class="modal-form">
+          <div class="modal-body">
+            <!-- 1. SLUG, CATEGORY & DATE ROW -->
+            <div class="form-row-3">
+              <div class="form-group flex-1">
+                <label class="form-label">
+                  URL Slug <span class="required-star">*</span>
+                </label>
+                <div class="input-with-prefix">
+                  <span class="input-prefix">/</span>
+                  <input
+                    type="text"
+                    v-model="noticeForm.slug"
+                    class="form-input font-mono"
+                    placeholder="timing-update"
+                    @input="onNoticeSlugManualEdit"
+                  />
+                </div>
+                <span v-if="noticeFormErrors.slug" class="error-msg">{{ noticeFormErrors.slug }}</span>
+              </div>
+
+              <div class="form-group flex-1">
+                <label class="form-label">Category <span class="required-star">*</span></label>
+                <select v-model="noticeForm.category" class="form-input">
+                  <option value="general">General Notice</option>
+                  <option value="festival">Festival / Special Puja</option>
+                  <option value="timings">Mandir Timings</option>
+                  <option value="announcement">Important Announcement</option>
+                </select>
+              </div>
+
+              <div class="form-group flex-1">
+                <label class="form-label">Notice Date <span class="required-star">*</span></label>
+                <input
+                  type="date"
+                  v-model="noticeForm.date"
+                  class="form-input"
+                />
+                <span v-if="noticeFormErrors.date" class="error-msg">{{ noticeFormErrors.date }}</span>
+              </div>
+            </div>
+
+            <!-- 2. BILINGUAL CONTENT TABS -->
+            <div class="lang-tab-bar">
+              <button
+                type="button"
+                class="lang-tab-btn"
+                :class="{ 'lang-tab-active': activeNoticeLangTab === 'en' }"
+                @click="activeNoticeLangTab = 'en'"
+              >
+                <span>English Content</span>
+                <span class="lang-req-dot">• Required</span>
+              </button>
+              <button
+                type="button"
+                class="lang-tab-btn"
+                :class="{ 'lang-tab-active': activeNoticeLangTab === 'bn' }"
+                @click="activeNoticeLangTab = 'bn'"
+              >
+                <span>বাংলা নোটিশ</span>
+                <span class="lang-opt-badge">(ঐচ্ছিক)</span>
+              </button>
+            </div>
+
+            <!-- English Fields -->
+            <div v-show="activeNoticeLangTab === 'en'" class="lang-fields-box">
+              <div class="form-group">
+                <label class="form-label">
+                  Notice Title (English) <span class="required-star">*</span>
+                </label>
+                <input
+                  type="text"
+                  v-model="noticeForm.titleEn"
+                  class="form-input"
+                  placeholder="e.g. Special Timings for Kali Puja Night"
+                  @input="onNoticeTitleEnInput"
+                />
+                <span v-if="noticeFormErrors.titleEn" class="error-msg">{{ noticeFormErrors.titleEn }}</span>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">
+                  Notice Body / Text (English) <span class="required-star">*</span>
+                </label>
+                <textarea
+                  v-model="noticeForm.bodyEn"
+                  class="form-textarea"
+                  rows="4"
+                  placeholder="Enter official circular details..."
+                ></textarea>
+                <span v-if="noticeFormErrors.bodyEn" class="error-msg">{{ noticeFormErrors.bodyEn }}</span>
+              </div>
+            </div>
+
+            <!-- Bengali Fields -->
+            <div v-show="activeNoticeLangTab === 'bn'" class="lang-fields-box">
+              <div class="form-group">
+                <label class="form-label">নোটিশের শিরোনাম (বাংলা)</label>
+                <input
+                  type="text"
+                  v-model="noticeForm.titleBn"
+                  class="form-input"
+                  placeholder="যেমন: শ্যামাপূজা উপলক্ষে ভক্তবৃন্দের জন্য বিশেষ বিজ্ঞপ্তি"
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">নোটিশের মূল বিষয়বস্তু (বাংলা)</label>
+                <textarea
+                  v-model="noticeForm.bodyBn"
+                  class="form-textarea"
+                  rows="4"
+                  placeholder="বিজ্ঞপ্তির বিস্তারিত বিবরণ..."
+                ></textarea>
+              </div>
+            </div>
+
+            <!-- 3. PINNED & ACTIVE SWITCHES -->
+            <div class="form-row-2 align-center">
+              <div class="form-group flex-1 checkbox-group">
+                <label class="form-label">Pin to Top of Notice Board</label>
+                <label class="checkbox-container">
+                  <input type="checkbox" v-model="noticeForm.pinned" />
+                  <span class="checkbox-label-text">
+                    {{ noticeForm.pinned ? '📌 Pinned Notice (Highlighted at top)' : 'Standard Notice' }}
+                  </span>
+                </label>
+              </div>
+
+              <div class="form-group flex-1 checkbox-group">
+                <label class="form-label">Visibility Status</label>
+                <label class="checkbox-container">
+                  <input type="checkbox" v-model="noticeForm.active" />
+                  <span class="checkbox-label-text">
+                    {{ noticeForm.active ? 'Active (Live on website)' : 'Hidden (Draft only)' }}
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-cancel" @click="isNoticeModalOpen = false">Cancel</button>
+            <button type="submit" class="btn-save" :disabled="savingNotice">
+              <span>{{ savingNotice ? 'Saving...' : isEditingNotice ? 'Update Notice' : 'Publish Notice' }}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- DELETE NOTICE CONFIRMATION MODAL                                    -->
+    <!-- =================================================================== -->
+    <div v-if="deleteConfirmNotice" class="modal-backdrop" @click.self="deleteConfirmNotice = null">
+      <div class="modal-dialog modal-dialog-sm">
+        <div class="modal-header">
+          <h2 class="modal-title text-red-500">Confirm Notice Deletion</h2>
+          <button type="button" class="modal-close-btn" @click="deleteConfirmNotice = null">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="confirm-text">
+            Are you sure you want to delete <strong>{{ deleteConfirmNotice.title.en }}</strong>?
+          </p>
+          <p class="confirm-warning">
+            This will permanently remove this notice from the temple notice board.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-cancel" @click="deleteConfirmNotice = null">Cancel</button>
+          <button
+            type="button"
+            class="btn-delete-confirm"
+            :disabled="deletingNotice"
+            @click="executeDeleteNotice"
+          >
+            <span>{{ deletingNotice ? 'Deleting...' : 'Yes, Delete' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- BOOKING ADMIN NOTE MODAL                                            -->
+    <!-- =================================================================== -->
+    <div v-if="isBookingNoteModalOpen && activeBookingNoteItem" class="modal-backdrop" @click.self="isBookingNoteModalOpen = false">
+      <div class="modal-dialog modal-dialog-sm">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-tag">INTERNAL RECORD</span>
+            <h2 class="modal-title">Temple Note for {{ activeBookingNoteItem.ref }}</h2>
+          </div>
+          <button type="button" class="modal-close-btn" @click="isBookingNoteModalOpen = false">&times;</button>
+        </div>
+        <form @submit.prevent="saveBookingAdminNote" class="modal-form">
+          <div class="modal-body">
+            <div class="booking-summary-box">
+              <div><strong>Devotee:</strong> {{ activeBookingNoteItem.name }} ({{ activeBookingNoteItem.phone }})</div>
+              <div><strong>Puja:</strong> {{ activeBookingNoteItem.pujaName?.en || 'Custom' }} on {{ activeBookingNoteItem.preferredDate }}</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Internal Priest / Office Note</label>
+              <textarea
+                v-model="bookingAdminNoteInput"
+                class="form-textarea"
+                rows="4"
+                placeholder="e.g. Confirmed with devotee by phone. Sankalpa arranged for 7:30 PM..."
+              ></textarea>
+              <span class="hint-text">Only visible to administrators and temple staff</span>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn-cancel" @click="isBookingNoteModalOpen = false">Cancel</button>
+            <button type="submit" class="btn-save" :disabled="updatingBookingStatus">
+              <span>{{ updatingBookingStatus ? 'Saving...' : 'Save Note' }}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- DELETE BOOKING CONFIRMATION MODAL                                   -->
+    <!-- =================================================================== -->
+    <div v-if="deleteConfirmBooking" class="modal-backdrop" @click.self="deleteConfirmBooking = null">
+      <div class="modal-dialog modal-dialog-sm">
+        <div class="modal-header">
+          <h2 class="modal-title text-red-500">Confirm Booking Deletion</h2>
+          <button type="button" class="modal-close-btn" @click="deleteConfirmBooking = null">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="confirm-text">
+            Are you sure you want to delete booking request <strong>{{ deleteConfirmBooking.ref }}</strong> ({{ deleteConfirmBooking.name }})?
+          </p>
+          <p class="confirm-warning">
+            This action cannot be undone. An audit record will be logged.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-cancel" @click="deleteConfirmBooking = null">Cancel</button>
+          <button
+            type="button"
+            class="btn-delete-confirm"
+            :disabled="deletingBooking"
+            @click="executeDeleteBooking"
+          >
+            <span>{{ deletingBooking ? 'Deleting...' : 'Yes, Delete Record' }}</span>
           </button>
         </div>
       </div>
@@ -3160,6 +4953,575 @@ input:checked + .switch-slider-blue {
   color: var(--accent);
 }
 
+/* ====================================================
+   DEITIES & SACRED SHRINES STYLING
+   ==================================================== */
+.deity-items-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.deity-row-item {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 0.15s ease;
+}
+
+.deity-row-item:last-child {
+  border-bottom: none;
+}
+
+.deity-row-item:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.deity-avatar-col {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deity-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.deity-avatar-placeholder {
+  font-size: 1.5rem;
+}
+
+.deity-details-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.deity-title-en {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.deity-title-bn {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--action-btn-bg);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+.deity-slug-pill {
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+}
+
+.deity-sub-row {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 0.25rem;
+}
+
+.deity-subtitle-bn {
+  color: var(--text-muted);
+  margin-left: 0.25rem;
+}
+
+.deity-desc-en {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0 0 0.2rem;
+  line-height: 1.45;
+}
+
+.deity-desc-bn {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ====================================================
+   TEMPLE NOTICES STYLING
+   ==================================================== */
+.category-pills-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.category-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.cat-chip {
+  padding: 0.35rem 0.8rem;
+  border-radius: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.775rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cat-chip:hover {
+  border-color: var(--accent);
+}
+
+.cat-chip-active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.notice-items-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.notice-row-item {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 0.15s ease;
+}
+
+.notice-row-item:last-child {
+  border-bottom: none;
+}
+
+.item-pinned {
+  border-left: 3px solid var(--accent);
+  background: rgba(224, 165, 38, 0.02);
+}
+
+.notice-meta-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  min-width: 110px;
+}
+
+.notice-date-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.notice-cat-tag {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--action-btn-bg);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  width: fit-content;
+}
+
+.pinned-indicator-chip {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--accent);
+  background: var(--accent-glow);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid rgba(224, 165, 38, 0.3);
+  width: fit-content;
+}
+
+.notice-details-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.notice-title-en {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.notice-title-bn {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--action-btn-bg);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+.notice-slug-pill {
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+}
+
+.notice-body-en {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0 0 0.2rem;
+  line-height: 1.45;
+}
+
+.notice-body-bn {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.notice-controls-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.btn-pin-toggle {
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  background: var(--action-btn-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-pin-toggle:hover {
+  border-color: var(--accent);
+}
+
+.pin-active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ====================================================
+   PUJA BOOKINGS MANAGER STYLING
+   ==================================================== */
+.booking-items-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.booking-row-item {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 0.15s ease;
+}
+
+.booking-row-item:last-child {
+  border-bottom: none;
+}
+
+.booking-status-new {
+  border-left: 3px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.02);
+}
+
+.booking-status-confirmed {
+  border-left: 3px solid #22c55e;
+}
+
+.booking-status-completed {
+  border-left: 3px solid #3b82f6;
+  opacity: 0.85;
+}
+
+.booking-status-cancelled {
+  border-left: 3px solid #ef4444;
+  opacity: 0.55;
+}
+
+.booking-ref-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  min-width: 120px;
+}
+
+.booking-ref-pill {
+  font-family: monospace;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--accent);
+  background: var(--accent-glow);
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid rgba(224, 165, 38, 0.3);
+  width: fit-content;
+}
+
+.booking-created-date {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.booking-devotee-col {
+  flex-shrink: 0;
+  min-width: 170px;
+}
+
+.devotee-name-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.3rem;
+}
+
+.devotee-name {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.devotee-gotra {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.devotee-contact-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.contact-link {
+  font-size: 0.775rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.contact-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.booking-puja-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.puja-booked-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.puja-booked-name {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.puja-booked-price {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--accent);
+  background: var(--action-btn-bg);
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+}
+
+.preferred-date-chip {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.preferred-date-chip strong {
+  color: var(--accent);
+}
+
+.devotee-note-box {
+  margin-top: 0.35rem;
+  font-size: 0.775rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  border-left: 2px solid var(--border-color);
+}
+
+.booking-status-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  min-width: 100px;
+}
+
+.booking-status-pill {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
+  width: fit-content;
+  text-align: center;
+}
+
+.pill-new {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.pill-confirmed {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+.pill-completed {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.pill-cancelled {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.handled-by-text {
+  font-size: 0.675rem;
+  color: var(--text-muted);
+}
+
+.admin-note-preview {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  max-width: 130px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.booking-actions-col {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.btn-booking-confirm {
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  background: #15803d;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-booking-confirm:hover { background: #16a34a; }
+
+.btn-booking-complete {
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  background: #1d4ed8;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-booking-complete:hover { background: #2563eb; }
+
+.btn-booking-cancel {
+  padding: 0.4rem 0.65rem;
+  border-radius: 6px;
+  background: var(--action-btn-bg);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-booking-cancel:hover { background: rgba(239, 68, 68, 0.15); }
+
+.btn-booking-note {
+  padding: 0.4rem 0.65rem;
+  border-radius: 6px;
+  background: var(--action-btn-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-booking-note:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.booking-summary-box {
+  background: var(--action-btn-bg);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.trend-amber {
+  color: #f59e0b;
+}
+
 @media (max-width: 768px) {
   .admin-topbar { padding: 0 1.25rem; }
   .dashboard-body { padding: 1.5rem 1.25rem 3rem; }
@@ -3170,5 +5532,9 @@ input:checked + .switch-slider-blue {
   .puja-row-item { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
   .puja-toggles-col { flex-direction: row; gap: 1.5rem; width: 100%; justify-content: flex-start; }
   .form-row-3 { flex-direction: column; gap: 0.75rem; }
+  .deity-row-item { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+  .notice-row-item { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+  .booking-row-item { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+  .booking-actions-col { width: 100%; justify-content: flex-start; }
 }
 </style>

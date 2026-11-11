@@ -34,7 +34,7 @@ export const reorderDeitiesSchema = z.object({
       id: z.number().int().positive(),
       sortOrder: z.number().int(),
     })
-  ),
+  ).min(1, "At least one item is required for reordering"),
 });
 
 export type ReorderDeitiesInput = z.infer<typeof reorderDeitiesSchema>;

@@ -1,35 +1,62 @@
-import { and, desc, eq, like, sql } from "drizzle-orm";
+import { and, desc, eq, like, or, sql } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
+import { createError } from "h3";
 import * as schema from "../db/schema";
 import { notices } from "../db/schema/notices";
+import { AuditService } from "./audit";
+import { purgeCache } from "../utils/cache";
 import type {
   CreateNoticeInput,
   UpdateNoticeInput,
   ListNoticesQuery,
 } from "../../shared/schemas/notices";
 
+export interface FormattedNoticeItem {
+  id: number;
+  slug: string;
+  title: { en: string; bn: string };
+  category: string;
+  date: string;
+  body: { en: string; bn: string };
+  pinned: boolean;
+  active: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export class NoticesService {
-  static async list(db: DrizzleD1Database<typeof schema>, query: ListNoticesQuery) {
-    const page = query.page || 1;
-    const pageSize = Math.min(query.pageSize || 20, 100);
+  /**
+   * List notices with optional pagination, search, category, pinned, and active filtering.
+   */
+  static async list(db: DrizzleD1Database<typeof schema>, query?: ListNoticesQuery) {
+    const page = query?.page || 1;
+    const pageSize = Math.min(query?.pageSize || 20, 100);
     const offset = (page - 1) * pageSize;
 
     const conditions = [];
 
-    if (query.active !== undefined) {
+    if (query?.active !== undefined) {
       conditions.push(eq(notices.active, query.active));
     }
 
-    if (query.pinned !== undefined) {
+    if (query?.pinned !== undefined) {
       conditions.push(eq(notices.pinned, query.pinned));
     }
 
-    if (query.category) {
-      conditions.push(eq(notices.category, query.category));
+    if (query?.category && query.category.trim()) {
+      conditions.push(eq(notices.category, query.category.trim()));
     }
 
-    if (query.search) {
-      conditions.push(like(notices.title, `%${query.search}%`));
+    if (query?.search && query.search.trim()) {
+      const q = `%${query.search.trim()}%`;
+      conditions.push(
+        or(
+          like(notices.title, q),
+          like(notices.slug, q),
+          like(notices.category, q),
+          like(notices.body, q)
+        )
+      );
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -39,7 +66,7 @@ export class NoticesService {
         .select()
         .from(notices)
         .where(whereClause)
-        .orderBy(desc(notices.pinned), desc(notices.date))
+        .orderBy(desc(notices.pinned), desc(notices.date), desc(notices.id))
         .limit(pageSize)
         .offset(offset),
       db
@@ -59,28 +86,49 @@ export class NoticesService {
     };
   }
 
-  static async getById(db: DrizzleD1Database<typeof schema>, id: number) {
+  /**
+   * Get single notice by integer ID.
+   */
+  static async getById(db: DrizzleD1Database<typeof schema>, id: number): Promise<FormattedNoticeItem | null> {
     const rows = await db.select().from(notices).where(eq(notices.id, id)).limit(1);
     const row = rows[0];
     if (!row) return null;
     return this.formatRow(row);
   }
 
-  static async getBySlug(db: DrizzleD1Database<typeof schema>, slug: string) {
+  /**
+   * Get single notice by slug.
+   */
+  static async getBySlug(db: DrizzleD1Database<typeof schema>, slug: string): Promise<FormattedNoticeItem | null> {
     const rows = await db.select().from(notices).where(eq(notices.slug, slug)).limit(1);
     const row = rows[0];
     if (!row) return null;
     return this.formatRow(row);
   }
 
-  static async create(db: DrizzleD1Database<typeof schema>, input: CreateNoticeInput) {
+  /**
+   * Create new temple notice, invalidate cache, and record audit log.
+   */
+  static async create(
+    db: DrizzleD1Database<typeof schema>,
+    input: CreateNoticeInput,
+    userId?: string | null
+  ): Promise<FormattedNoticeItem> {
+    const existing = await this.getBySlug(db, input.slug);
+    if (existing) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: `A notice with slug '${input.slug}' already exists`,
+      });
+    }
+
     const now = Date.now();
     const [inserted] = await db
       .insert(notices)
       .values({
         slug: input.slug,
         title: JSON.stringify(input.title),
-        category: input.category,
+        category: input.category || "general",
         date: input.date,
         body: JSON.stringify(input.body),
         pinned: input.pinned ?? false,
@@ -91,16 +139,58 @@ export class NoticesService {
       .returning();
 
     if (!inserted) {
-      throw new Error("Failed to insert notice");
+      throw createError({
+        statusCode: 500,
+        statusMessage: "Failed to insert notice",
+      });
     }
+
+    // Invalidate edge cache
+    await purgeCache(["notices"]).catch((err) =>
+      console.warn("Notices cache purge error:", err)
+    );
+
+    // Audit log
+    await AuditService.record(db, {
+      userId,
+      action: "create",
+      entity: "notices",
+      entityId: String(inserted.id),
+      details: {
+        slug: input.slug,
+        title: input.title.en,
+        category: input.category,
+      },
+    }).catch((err) => console.warn("Audit record error:", err));
 
     return this.formatRow(inserted);
   }
 
-  static async update(db: DrizzleD1Database<typeof schema>, input: UpdateNoticeInput) {
+  /**
+   * Update notice by ID, invalidate cache, and record audit log.
+   */
+  static async update(
+    db: DrizzleD1Database<typeof schema>,
+    input: UpdateNoticeInput,
+    userId?: string | null
+  ): Promise<FormattedNoticeItem> {
     const existing = await this.getById(db, input.id);
     if (!existing) {
-      throw new Error(`Notice with ID ${input.id} not found`);
+      throw createError({
+        statusCode: 404,
+        statusMessage: `Notice with ID ${input.id} not found`,
+      });
+    }
+
+    // Check slug uniqueness if changed
+    if (input.slug && input.slug !== existing.slug) {
+      const slugConflict = await this.getBySlug(db, input.slug);
+      if (slugConflict && slugConflict.id !== input.id) {
+        throw createError({
+          statusCode: 409,
+          statusMessage: `A notice with slug '${input.slug}' already exists`,
+        });
+      }
     }
 
     const now = Date.now();
@@ -123,22 +213,79 @@ export class NoticesService {
       .returning();
 
     if (!updated) {
-      throw new Error(`Failed to update notice ${input.id}`);
+      throw createError({
+        statusCode: 500,
+        statusMessage: `Failed to update notice ${input.id}`,
+      });
     }
+
+    // Invalidate edge cache
+    await purgeCache(["notices"]).catch((err) =>
+      console.warn("Notices cache purge error:", err)
+    );
+
+    // Audit log
+    await AuditService.record(db, {
+      userId,
+      action: "update",
+      entity: "notices",
+      entityId: String(input.id),
+      details: {
+        slug: input.slug ?? existing.slug,
+        title: input.title?.en ?? existing.title.en,
+        pinned: input.pinned ?? existing.pinned,
+        active: input.active ?? existing.active,
+      },
+    }).catch((err) => console.warn("Audit record error:", err));
 
     return this.formatRow(updated);
   }
 
-  static async delete(db: DrizzleD1Database<typeof schema>, id: number) {
+  /**
+   * Delete notice by ID, invalidate cache, and record audit log.
+   */
+  static async delete(
+    db: DrizzleD1Database<typeof schema>,
+    id: number,
+    userId?: string | null
+  ) {
+    const existing = await this.getById(db, id);
+    if (!existing) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: `Notice with ID ${id} not found`,
+      });
+    }
+
     const [deleted] = await db.delete(notices).where(eq(notices.id, id)).returning();
+
+    // Invalidate edge cache
+    await purgeCache(["notices"]).catch((err) =>
+      console.warn("Notices cache purge error:", err)
+    );
+
+    // Audit log
+    await AuditService.record(db, {
+      userId,
+      action: "delete",
+      entity: "notices",
+      entityId: String(id),
+      details: {
+        title: existing.title.en,
+        slug: existing.slug,
+      },
+    }).catch((err) => console.warn("Audit record error:", err));
+
     return !!deleted;
   }
 
-  // Public active-only notices
+  /**
+   * Public active-only notices listing: pinned first, then by date desc.
+   */
   static async getPublicList(
     db: DrizzleD1Database<typeof schema>,
     options?: { limit?: number; category?: string }
-  ) {
+  ): Promise<FormattedNoticeItem[]> {
     const limit = options?.limit || 20;
     const conditions = [eq(notices.active, true)];
 
@@ -156,7 +303,13 @@ export class NoticesService {
     return rows.map(this.formatRow);
   }
 
-  static async getPublicBySlug(db: DrizzleD1Database<typeof schema>, slug: string) {
+  /**
+   * Public active notice by slug.
+   */
+  static async getPublicBySlug(
+    db: DrizzleD1Database<typeof schema>,
+    slug: string
+  ): Promise<FormattedNoticeItem | null> {
     const rows = await db
       .select()
       .from(notices)
@@ -168,7 +321,7 @@ export class NoticesService {
     return this.formatRow(row);
   }
 
-  private static formatRow(row: typeof notices.$inferSelect) {
+  private static formatRow(row: typeof notices.$inferSelect): FormattedNoticeItem {
     return {
       ...row,
       title: parseJson(row.title, { en: "", bn: "" }),
