@@ -36,10 +36,16 @@ useHead({
 
     <!-- Floating Demo Switcher -->
     <aside class="demo-switcher" aria-label="Demo Layout Switcher">
-      <NuxtLink to="/home-2" class="switcher-pill">
-        <span class="switcher-dot kesari-dot"></span>
-        <span>View Layout 2 (Kesari Saffron)</span>
-      </NuxtLink>
+      <div class="switcher-group">
+        <NuxtLink to="/home-fast" class="switcher-pill pill-fast">
+          <span class="switcher-dot fast-dot"></span>
+          <span>View Optimized Page (⚡ Fast)</span>
+        </NuxtLink>
+        <NuxtLink to="/home-2" class="switcher-pill">
+          <span class="switcher-dot kesari-dot"></span>
+          <span>View Layout 2 (Kesari Saffron)</span>
+        </NuxtLink>
+      </div>
     </aside>
   </div>
 </template>
@@ -57,6 +63,13 @@ useHead({
   bottom: 1.75rem;
   right: 1.75rem;
   z-index: 999;
+}
+
+.switcher-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-end;
 }
 
 .switcher-pill {
@@ -82,6 +95,10 @@ useHead({
   height: 8px;
   border-radius: 50%;
   background-color: var(--gold, #E0A526);
+}
+
+.switcher-dot.fast-dot {
+  background-color: #10b981;
 }
 
 .switcher-dot.kesari-dot {

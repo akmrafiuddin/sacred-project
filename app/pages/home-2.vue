@@ -36,10 +36,16 @@ useHead({
 
     <!-- Floating Demo Switcher for easy toggling between designs -->
     <aside class="demo-switcher" aria-label="Demo Layout Switcher">
-      <NuxtLink to="/" class="switcher-pill">
-        <span class="switcher-dot"></span>
-        <span>View Layout 1 (Golden Classic)</span>
-      </NuxtLink>
+      <div class="switcher-group">
+        <NuxtLink to="/home-fast" class="switcher-pill pill-fast">
+          <span class="switcher-dot fast-dot"></span>
+          <span>View Optimized Page (⚡ Fast)</span>
+        </NuxtLink>
+        <NuxtLink to="/" class="switcher-pill">
+          <span class="switcher-dot"></span>
+          <span>View Layout 1 (Golden Classic)</span>
+        </NuxtLink>
+      </div>
     </aside>
   </div>
 </template>
@@ -76,6 +82,13 @@ html[data-theme="dark"] .home-alt-theme {
   z-index: 999;
 }
 
+.switcher-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+
 .switcher-pill {
   display: inline-flex;
   align-items: center;
@@ -99,6 +112,10 @@ html[data-theme="dark"] .home-alt-theme {
   height: 8px;
   border-radius: 50%;
   background-color: var(--gold, #E0A526); /* Golden dot representing layout 1 */
+}
+
+.switcher-dot.fast-dot {
+  background-color: #10b981;
 }
 
 .switcher-pill:hover {

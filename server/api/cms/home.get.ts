@@ -4,6 +4,9 @@ import * as schema from "../../db/schema";
 import { defaultHomeData, type HomePageData } from "../../cms/defaults";
 
 export default defineEventHandler(async (event) => {
+  // Edge & browser caching for high-speed delivery
+  setHeader(event, "Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
+
   const env = event.context.cloudflare?.env as { DB: any } | undefined;
   if (!env?.DB) {
     return defaultHomeData;
