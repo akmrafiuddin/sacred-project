@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, adminProcedure } from "../init";
+import { router, adminProcedure, staffProcedure } from "../init";
 import {
   listMessagesQuerySchema,
   updateMessageStatusSchema,
@@ -7,19 +7,19 @@ import {
 import { MessagesService } from "../../services/messages";
 
 export const messagesRouter = router({
-  list: adminProcedure
-    .input(listMessagesQuerySchema)
+  list: staffProcedure
+    .input(listMessagesQuerySchema.optional())
     .query(async ({ ctx, input }) => {
       return MessagesService.adminList(ctx.db, input);
     }),
 
-  get: adminProcedure
+  get: staffProcedure
     .input(z.object({ id: z.number().int() }))
     .query(async ({ ctx, input }) => {
       return MessagesService.adminGet(ctx.db, input.id);
     }),
 
-  updateStatus: adminProcedure
+  updateStatus: staffProcedure
     .input(updateMessageStatusSchema)
     .mutation(async ({ ctx, input }) => {
       return MessagesService.adminUpdateStatus(

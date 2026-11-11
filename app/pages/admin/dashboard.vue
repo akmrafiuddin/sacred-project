@@ -6,7 +6,7 @@ import type { FormattedPujaItem } from "~~/server/services/pujas";
 import type { FormattedDeityItem } from "~~/server/services/deities";
 import type { FormattedNoticeItem } from "~~/server/services/notices";
 import type { FormattedEventItem } from "~~/server/services/events";
-import type { BookingStatus } from "~~/shared/schemas/forms";
+import type { BookingStatus, MessageStatus } from "~~/shared/schemas/forms";
 
 useHead({
   title: "Sanctum Dashboard - Temple Console",
@@ -25,7 +25,7 @@ watchEffect(() => {
 });
 
 const isSidebarOpen = ref(false);
-const activeModule = ref<"dashboard" | "schedule" | "pujas" | "events" | "deities" | "notices" | "bookings">("dashboard");
+const activeModule = ref<"dashboard" | "schedule" | "pujas" | "events" | "deities" | "notices" | "bookings" | "messages">("dashboard");
 
 // Current date formatted
 const formattedDate = ref("");
@@ -48,6 +48,7 @@ const navItems = [
   { id: "deities", label: "Deities & Shrines", badge: "Sacred" },
   { id: "notices", label: "Temple Notices", badge: "Board" },
   { id: "bookings", label: "Puja Bookings", badge: "Devotees" },
+  { id: "messages", label: "Contact Messages", badge: "Inquiries" },
 ];
 
 // Navigation Groups for clean sidebar structure
@@ -80,6 +81,11 @@ const navGroups = computed(() => [
         id: "bookings",
         label: "Puja Bookings",
         badge: newBookingsCount.value > 0 ? `${newBookingsCount.value} new` : "",
+      },
+      {
+        id: "messages",
+        label: "Contact Messages",
+        badge: newMessagesCount.value > 0 ? `${newMessagesCount.value} new` : "",
       },
     ],
   },
@@ -141,6 +147,7 @@ onMounted(() => {
   fetchDeitiesData();
   fetchNoticesData();
   fetchBookingsData();
+  fetchMessagesData();
 });
 
 // Filtered schedule list
@@ -1360,6 +1367,157 @@ const executeDeleteBooking = async () => {
   }
 };
 
+
+// =========================================================================
+// CONTACT MESSAGES MANAGER STATE & METHODS
+// =========================================================================
+interface AdminMessageItem {
+  id: number;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  subject: string;
+  message: string;
+  status: MessageStatus;
+  adminNote: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+const messageItems = ref<AdminMessageItem[]>([]);
+const loadingMessages = ref(false);
+const messageSearchQuery = ref("");
+const messageStatusFilter = ref<"all" | MessageStatus>("all");
+
+const fetchMessagesData = async () => {
+  loadingMessages.value = true;
+  try {
+    const res = await $trpc.messages.list.query();
+    if (res && res.items) {
+      messageItems.value = res.items as AdminMessageItem[];
+    }
+  } catch (err: any) {
+    console.error("Failed to load contact messages:", err);
+    showToast(err?.message || "Failed to load messages data", "error");
+  } finally {
+    loadingMessages.value = false;
+  }
+};
+
+const filteredMessages = computed(() => {
+  return messageItems.value.filter((item) => {
+    // 1. Status filter
+    if (messageStatusFilter.value !== "all" && item.status !== messageStatusFilter.value) {
+      return false;
+    }
+
+    // 2. Search query filter
+    if (messageSearchQuery.value.trim()) {
+      const q = messageSearchQuery.value.trim().toLowerCase();
+      const matchName = item.name.toLowerCase().includes(q);
+      const matchSubject = item.subject.toLowerCase().includes(q);
+      const matchMessage = item.message.toLowerCase().includes(q);
+      const matchPhone = (item.phone || "").toLowerCase().includes(q);
+      const matchEmail = (item.email || "").toLowerCase().includes(q);
+      const matchId = item.id.toString().includes(q);
+      return matchName || matchSubject || matchMessage || matchPhone || matchEmail || matchId;
+    }
+
+    return true;
+  });
+});
+
+const totalMessagesCount = computed(() => messageItems.value.length);
+const newMessagesCount = computed(() => messageItems.value.filter((m) => m.status === "new").length);
+const readMessagesCount = computed(() => messageItems.value.filter((m) => m.status === "read").length);
+const repliedMessagesCount = computed(() => messageItems.value.filter((m) => m.status === "replied").length);
+const archivedMessagesCount = computed(() => messageItems.value.filter((m) => m.status === "archived").length);
+
+// Admin note / view action modal
+const isMessageModalOpen = ref(false);
+const activeMessageItem = ref<AdminMessageItem | null>(null);
+const messageAdminNoteInput = ref("");
+const updatingMessageStatus = ref(false);
+
+const openMessageModal = async (item: AdminMessageItem) => {
+  activeMessageItem.value = item;
+  messageAdminNoteInput.value = item.adminNote || "";
+  isMessageModalOpen.value = true;
+
+  // Auto-mark as read if newly opened
+  if (item.status === "new") {
+    try {
+      await $trpc.messages.updateStatus.mutate({
+        id: item.id,
+        status: "read",
+        adminNote: item.adminNote || undefined,
+      });
+      item.status = "read";
+    } catch {
+      // ignore
+    }
+  }
+};
+
+const saveMessageAdminNote = async () => {
+  if (!activeMessageItem.value) return;
+
+  updatingMessageStatus.value = true;
+  try {
+    await $trpc.messages.updateStatus.mutate({
+      id: activeMessageItem.value.id,
+      status: activeMessageItem.value.status,
+      adminNote: messageAdminNoteInput.value.trim() || undefined,
+    });
+    activeMessageItem.value.adminNote = messageAdminNoteInput.value.trim() || null;
+    showToast("Admin note saved successfully!");
+    isMessageModalOpen.value = false;
+    await fetchMessagesData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to save note", "error");
+  } finally {
+    updatingMessageStatus.value = false;
+  }
+};
+
+const changeMessageStatus = async (item: AdminMessageItem, newStatus: MessageStatus) => {
+  try {
+    await $trpc.messages.updateStatus.mutate({
+      id: item.id,
+      status: newStatus,
+      adminNote: item.adminNote || undefined,
+    });
+    item.status = newStatus;
+    showToast(`Message marked as ${newStatus}!`);
+    await fetchMessagesData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to update message status", "error");
+  }
+};
+
+const deleteConfirmMessage = ref<AdminMessageItem | null>(null);
+const deletingMessage = ref(false);
+
+const confirmDeleteMessage = (item: AdminMessageItem) => {
+  deleteConfirmMessage.value = item;
+};
+
+const executeDeleteMessage = async () => {
+  if (!deleteConfirmMessage.value) return;
+
+  deletingMessage.value = true;
+  try {
+    await $trpc.messages.delete.mutate({ id: deleteConfirmMessage.value.id });
+    showToast("Message deleted successfully!");
+    deleteConfirmMessage.value = null;
+    await fetchMessagesData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to delete message", "error");
+  } finally {
+    deletingMessage.value = false;
+  }
+};
+
 // =========================================================================
 // EVENTS & FESTIVALS STATE & CRUD
 // =========================================================================
@@ -1702,7 +1860,7 @@ const executeDeleteEvent = async () => {
                 activeModule === 'pujas' ? 'Pujas & Services' :
                 activeModule === 'events' ? 'Festivals & Events' :
                 activeModule === 'deities' ? 'Deities & Shrines' :
-                activeModule === 'notices' ? 'Temple Notices' : 'Puja Bookings'
+                activeModule === 'notices' ? 'Temple Notices' : activeModule === 'bookings' ? 'Puja Bookings' : 'Contact Messages'
               }}
             </span>
           </div>
@@ -1718,6 +1876,17 @@ const executeDeleteEvent = async () => {
           >
             <span>Bookings</span>
             <span v-if="newBookingsCount > 0" class="topbar-badge">{{ newBookingsCount }}</span>
+          </button>
+
+          <!-- Contact Messages Shortcut -->
+          <button
+            type="button"
+            class="topbar-notifications-btn"
+            title="Contact Inquiries"
+            @click="activeModule = 'messages'"
+          >
+            <span>Messages</span>
+            <span v-if="newMessagesCount > 0" class="topbar-badge">{{ newMessagesCount }}</span>
           </button>
 
           <!-- Status Pill -->
@@ -1817,6 +1986,17 @@ const executeDeleteEvent = async () => {
                 </span>
               </div>
             </div>
+            <!-- 7. Contact Inquiries -->
+            <div class="kpi-card" @click="activeModule = 'messages'">
+              <div class="kpi-content">
+                <span class="kpi-label">Contact Messages</span>
+                <span class="kpi-val">{{ totalMessagesCount }}</span>
+                <span class="kpi-trend">
+                  <span v-if="newMessagesCount > 0" class="trend-amber font-bold">{{ newMessagesCount }} New Inquiries</span>
+                  <span v-else class="text-green-400">All Inquiries Handled</span>
+                </span>
+              </div>
+            </div>
 
             <!-- 7. Next Aarti -->
             <div class="kpi-card">
@@ -1856,6 +2036,9 @@ const executeDeleteEvent = async () => {
               </button>
               <button type="button" class="action-btn" @click="activeModule = 'bookings'">
                 <span>Review Puja Bookings</span>
+              </button>
+              <button type="button" class="action-btn" @click="activeModule = 'messages'">
+                <span>Contact Inquiries</span>
               </button>
             </div>
           </div>
@@ -2999,6 +3182,190 @@ const executeDeleteEvent = async () => {
             </div>
           </div>
         </div>
+
+        <!-- =============================================================== -->
+        <!-- TAB 8: CONTACT MESSAGES & INQUIRIES                             -->
+        <!-- =============================================================== -->
+        <div v-else-if="activeModule === 'messages'" class="tab-pane">
+          <!-- Module Header -->
+          <div class="module-header-row">
+            <div>
+              <h1 class="module-title">Contact Messages &amp; Inquiries</h1>
+              <p class="module-subtitle">
+                Review and respond to messages, prayer petitions, and seva inquiries submitted from the Mandir Contact page.
+              </p>
+            </div>
+            <div class="module-header-actions">
+              <button type="button" class="btn-refresh" @click="fetchMessagesData" title="Refresh messages list">
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          <!-- Filters Bar -->
+          <div class="filters-bar">
+            <div class="search-box">
+              <input
+                type="text"
+                v-model="messageSearchQuery"
+                class="search-input"
+                placeholder="Search by devotee name, phone, email, subject, or message text..."
+              />
+              <button v-if="messageSearchQuery" class="clear-search-btn" @click="messageSearchQuery = ''">&times;</button>
+            </div>
+
+            <div class="filter-pills">
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': messageStatusFilter === 'all' }"
+                @click="messageStatusFilter = 'all'"
+              >
+                All ({{ totalMessagesCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': messageStatusFilter === 'new' }"
+                @click="messageStatusFilter = 'new'"
+              >
+                New ({{ newMessagesCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': messageStatusFilter === 'read' }"
+                @click="messageStatusFilter = 'read'"
+              >
+                Read ({{ readMessagesCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': messageStatusFilter === 'replied' }"
+                @click="messageStatusFilter = 'replied'"
+              >
+                Replied ({{ repliedMessagesCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': messageStatusFilter === 'archived' }"
+                @click="messageStatusFilter = 'archived'"
+              >
+                Archived ({{ archivedMessagesCount }})
+              </button>
+            </div>
+          </div>
+
+          <!-- Messages Table / Card List -->
+          <div class="schedule-table-card">
+            <div v-if="loadingMessages" class="loading-state">
+              <div class="spinner"></div>
+              <span>Loading contact messages from Sanctum database...</span>
+            </div>
+
+            <div v-else-if="filteredMessages.length === 0" class="empty-state">
+              <h3 class="empty-title">No messages found</h3>
+              <p class="empty-desc">
+                {{ messageSearchQuery ? 'No message records match your search filter.' : 'No devotee contact messages in this category.' }}
+              </p>
+            </div>
+
+            <div v-else class="booking-items-list">
+              <div
+                v-for="item in filteredMessages"
+                :key="item.id"
+                class="booking-row-item"
+                :class="`message-status-${item.status}`"
+              >
+                <!-- Reference Badge & Date Col -->
+                <div class="booking-ref-col">
+                  <span class="booking-ref-pill">#GKM-{{ item.id.toString().padStart(5, '0') }}</span>
+                  <span class="booking-created-date">Submitted: {{ new Date(item.createdAt).toLocaleDateString() }}</span>
+                </div>
+
+                <!-- Devotee Contact Info Col -->
+                <div class="booking-devotee-col">
+                  <div class="devotee-name-row">
+                    <span class="devotee-name">{{ item.name }}</span>
+                  </div>
+                  <div class="devotee-contact-row">
+                    <a v-if="item.phone" :href="`tel:${item.phone}`" class="contact-link phone-link">{{ item.phone }}</a>
+                    <a v-if="item.email" :href="`mailto:${item.email}`" class="contact-link email-link">{{ item.email }}</a>
+                    <span v-if="!item.phone && !item.email" class="text-xs text-muted">No phone / email</span>
+                  </div>
+                </div>
+
+                <!-- Subject & Message Snippet Col -->
+                <div class="booking-puja-col" style="cursor: pointer;" @click="openMessageModal(item)">
+                  <div class="puja-booked-badge">
+                    <span class="puja-booked-name font-bold">{{ item.subject }}</span>
+                  </div>
+                  <div class="devotee-note-box">
+                    <span class="note-quote">“{{ item.message.slice(0, 150) }}{{ item.message.length > 150 ? '...' : '' }}”</span>
+                  </div>
+                </div>
+
+                <!-- Status & Admin Notes Col -->
+                <div class="booking-status-col">
+                  <span class="booking-status-pill" :class="`pill-${item.status}`">
+                    {{ item.status.toUpperCase() }}
+                  </span>
+                  <div v-if="item.adminNote" class="admin-note-preview" :title="item.adminNote">
+                    <span>Note: {{ item.adminNote }}</span>
+                  </div>
+                </div>
+
+                <!-- Workflow Actions Col -->
+                <div class="booking-actions-col">
+                  <!-- View Full Message Button -->
+                  <button
+                    type="button"
+                    class="btn-booking-confirm"
+                    title="Read full message and respond"
+                    @click="openMessageModal(item)"
+                  >
+                    View
+                  </button>
+
+                  <!-- Mark as Replied -->
+                  <button
+                    v-if="item.status !== 'replied'"
+                    type="button"
+                    class="btn-booking-complete"
+                    title="Mark as replied"
+                    @click="changeMessageStatus(item, 'replied')"
+                  >
+                    Replied
+                  </button>
+
+                  <!-- Mark as Archived -->
+                  <button
+                    v-if="item.status !== 'archived'"
+                    type="button"
+                    class="btn-booking-cancel"
+                    title="Archive this message"
+                    @click="changeMessageStatus(item, 'archived')"
+                  >
+                    Archive
+                  </button>
+
+                  <!-- Delete (Admin) -->
+                  <button
+                    v-if="isAdmin"
+                    type="button"
+                    class="btn-action-del"
+                    title="Delete message"
+                    @click="confirmDeleteMessage(item)"
+                  >
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
 
@@ -3914,6 +4281,142 @@ const executeDeleteEvent = async () => {
             @click="executeDeleteBooking"
           >
             <span>{{ deletingBooking ? 'Deleting...' : 'Yes, Delete Record' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    
+    <!-- =================================================================== -->
+    <!-- VIEW / RESPOND TO CONTACT MESSAGE MODAL                             -->
+    <!-- =================================================================== -->
+    <div v-if="isMessageModalOpen && activeMessageItem" class="modal-backdrop" @click.self="isMessageModalOpen = false">
+      <div class="modal-dialog modal-dialog-lg">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-tag">INQUIRY #GKM-{{ activeMessageItem.id.toString().padStart(5, '0') }}</span>
+            <h2 class="modal-title">{{ activeMessageItem.subject }}</h2>
+          </div>
+          <button type="button" class="modal-close-btn" @click="isMessageModalOpen = false">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Devotee Profile Header Box -->
+          <div class="booking-summary-box mb-4">
+            <div><strong>Devotee:</strong> {{ activeMessageItem.name }}</div>
+            <div>
+              <strong>Contact:</strong>
+              <span v-if="activeMessageItem.phone" class="ml-1 mr-2">
+                <a :href="`tel:${activeMessageItem.phone}`" class="contact-link phone-link">{{ activeMessageItem.phone }}</a>
+                <a :href="`https://wa.me/${activeMessageItem.phone.replace(/[^0-9]/g, '')}`" target="_blank" rel="noopener noreferrer" class="contact-link ml-1">WhatsApp</a>
+              </span>
+              <span v-if="activeMessageItem.email">
+                <a :href="`mailto:${activeMessageItem.email}?subject=Regarding: ${encodeURIComponent(activeMessageItem.subject)}`" class="contact-link email-link">{{ activeMessageItem.email }}</a>
+              </span>
+              <span v-if="!activeMessageItem.phone && !activeMessageItem.email" class="text-muted ml-1">Not provided</span>
+            </div>
+            <div><strong>Submitted:</strong> {{ new Date(activeMessageItem.createdAt).toLocaleString() }}</div>
+            <div>
+              <strong>Current Status:</strong>
+              <span class="booking-status-pill ml-2" :class="`pill-${activeMessageItem.status}`">{{ activeMessageItem.status.toUpperCase() }}</span>
+            </div>
+          </div>
+
+          <!-- Full Message Body -->
+          <div class="form-group mb-4">
+            <label class="form-label">Message Content</label>
+            <div class="p-3 bg-gray-50 border rounded text-sm text-gray-800 whitespace-pre-wrap leading-relaxed" style="background: var(--adm-surface); border: 1px solid var(--adm-border); border-radius: 6px; padding: 1rem;">
+              {{ activeMessageItem.message }}
+            </div>
+          </div>
+
+          <!-- Internal Admin Note -->
+          <div class="form-group">
+            <label class="form-label">Staff / Admin Follow-up Note</label>
+            <textarea
+              v-model="messageAdminNoteInput"
+              class="form-textarea"
+              rows="3"
+              placeholder="e.g. Replied via email with darshan timing details. Or spoke with devotee over phone..."
+            ></textarea>
+            <span class="hint-text">Saved notes are only visible to Mandir admin and staff members</span>
+          </div>
+
+          <!-- Status Switcher -->
+          <div class="form-group mt-3">
+            <label class="form-label">Change Status</label>
+            <div class="filter-pills">
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': activeMessageItem.status === 'new' }"
+                @click="changeMessageStatus(activeMessageItem, 'new')"
+              >
+                New
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': activeMessageItem.status === 'read' }"
+                @click="changeMessageStatus(activeMessageItem, 'read')"
+              >
+                Read
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': activeMessageItem.status === 'replied' }"
+                @click="changeMessageStatus(activeMessageItem, 'replied')"
+              >
+                Replied
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': activeMessageItem.status === 'archived' }"
+                @click="changeMessageStatus(activeMessageItem, 'archived')"
+              >
+                Archived
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-cancel" @click="isMessageModalOpen = false">Close</button>
+          <button type="button" class="btn-save" :disabled="updatingMessageStatus" @click="saveMessageAdminNote">
+            <span>{{ updatingMessageStatus ? 'Saving...' : 'Save Note' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- DELETE MESSAGE CONFIRMATION MODAL                                   -->
+    <!-- =================================================================== -->
+    <div v-if="deleteConfirmMessage" class="modal-backdrop" @click.self="deleteConfirmMessage = null">
+      <div class="modal-dialog modal-dialog-sm">
+        <div class="modal-header">
+          <h2 class="modal-title text-red-500">Confirm Message Deletion</h2>
+          <button type="button" class="modal-close-btn" @click="deleteConfirmMessage = null">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="confirm-text">
+            Are you sure you want to delete inquiry <strong>#GKM-{{ deleteConfirmMessage.id.toString().padStart(5, '0') }}</strong> from {{ deleteConfirmMessage.name }}?
+          </p>
+          <p class="confirm-warning">
+            This action cannot be undone.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-cancel" @click="deleteConfirmMessage = null">Cancel</button>
+          <button
+            type="button"
+            class="btn-delete-confirm"
+            :disabled="deletingMessage"
+            @click="executeDeleteMessage"
+          >
+            <span>{{ deletingMessage ? 'Deleting...' : 'Yes, Delete Record' }}</span>
           </button>
         </div>
       </div>
@@ -5878,6 +6381,42 @@ input:checked + .switch-slider-blue {
   color: #b91c1c;
   border: 1px solid #fecaca;
 }
+
+.pill-read {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.pill-replied {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.pill-archived {
+  background: #f3f4f6;
+  color: #4b5563;
+  border: 1px solid #e5e7eb;
+}
+
+.message-status-new {
+  border-left: 3px solid #b45309;
+}
+
+.message-status-read {
+  border-left: 3px solid #2563eb;
+}
+
+.message-status-replied {
+  border-left: 3px solid #059669;
+}
+
+.message-status-archived {
+  border-left: 3px solid #6b7280;
+  opacity: 0.75;
+}
+
 
 .handled-by-text {
   font-size: 0.65rem;

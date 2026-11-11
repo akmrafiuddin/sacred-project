@@ -35,18 +35,18 @@ export class MessagesService {
   }
 
   // --- Admin Queries (adminProcedure only) ---
-  static async adminList(db: DrizzleD1Database<typeof schema>, query: ListMessagesQuery) {
-    const page = query.page || 1;
-    const pageSize = Math.min(query.pageSize || 20, 100);
+  static async adminList(db: DrizzleD1Database<typeof schema>, query?: Partial<ListMessagesQuery>) {
+    const page = query?.page || 1;
+    const pageSize = Math.min(query?.pageSize || 20, 100);
     const offset = (page - 1) * pageSize;
 
     const conditions = [];
 
-    if (query.status) {
+    if (query?.status) {
       conditions.push(eq(contactMessages.status, query.status));
     }
 
-    if (query.search) {
+    if (query?.search) {
       conditions.push(like(contactMessages.name, `%${query.search}%`));
     }
 
