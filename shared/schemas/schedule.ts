@@ -18,6 +18,9 @@ export const updateScheduleSchema = createScheduleSchema.partial().extend({
 export type UpdateScheduleInput = z.infer<typeof updateScheduleSchema>;
 
 export const listScheduleQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  search: z.string().trim().optional(),
   active: z.coerce.boolean().optional(),
 });
 
@@ -29,7 +32,7 @@ export const reorderScheduleSchema = z.object({
       id: z.number().int().positive(),
       sortOrder: z.number().int(),
     })
-  ),
+  ).min(1, "At least one item is required to reorder"),
 });
 
 export type ReorderScheduleInput = z.infer<typeof reorderScheduleSchema>;

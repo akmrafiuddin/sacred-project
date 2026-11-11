@@ -1,7 +1,10 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, like, or, sql } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
+import { createError } from "h3";
 import * as schema from "../db/schema";
 import { dailySchedule } from "../db/schema/schedule";
+import { AuditService } from "./audit";
+import { purgeCache } from "../utils/cache";
 import type {
   CreateScheduleInput,
   UpdateScheduleInput,
@@ -27,6 +30,9 @@ export interface NextAartiResult {
 }
 
 export class ScheduleService {
+  /**
+   * List schedule items with optional pagination, search, and active filtering.
+   */
   static async list(db: DrizzleD1Database<typeof schema>, query?: ListScheduleQuery) {
     const conditions = [];
 
@@ -34,20 +40,50 @@ export class ScheduleService {
       conditions.push(eq(dailySchedule.active, query.active));
     }
 
+    if (query?.search && query.search.trim()) {
+      const q = `%${query.search.trim()}%`;
+      conditions.push(
+        or(
+          like(dailySchedule.time, q),
+          like(dailySchedule.title, q),
+          like(dailySchedule.description, q)
+        )
+      );
+    }
+
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Count total matching items
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(dailySchedule)
+      .where(whereClause);
+
+    const total = Number(countResult?.count || 0);
+
+    const page = query?.page ?? 1;
+    const pageSize = query?.pageSize ?? 50;
+    const offset = (page - 1) * pageSize;
 
     const items = await db
       .select()
       .from(dailySchedule)
       .where(whereClause)
-      .orderBy(asc(dailySchedule.sortOrder), asc(dailySchedule.time));
+      .orderBy(asc(dailySchedule.sortOrder), asc(dailySchedule.time))
+      .limit(pageSize)
+      .offset(offset);
 
     return {
       items: items.map(this.formatRow),
-      total: items.length,
+      total,
+      page,
+      pageSize,
     };
   }
 
+  /**
+   * Get single schedule item by integer ID.
+   */
   static async getById(db: DrizzleD1Database<typeof schema>, id: number) {
     const rows = await db.select().from(dailySchedule).where(eq(dailySchedule.id, id)).limit(1);
     const row = rows[0];
@@ -55,7 +91,14 @@ export class ScheduleService {
     return this.formatRow(row);
   }
 
-  static async create(db: DrizzleD1Database<typeof schema>, input: CreateScheduleInput) {
+  /**
+   * Create new daily schedule item, invalidate cache, and log audit event.
+   */
+  static async create(
+    db: DrizzleD1Database<typeof schema>,
+    input: CreateScheduleInput,
+    userId?: string | null
+  ) {
     const now = Date.now();
     const [inserted] = await db
       .insert(dailySchedule)
@@ -71,16 +114,46 @@ export class ScheduleService {
       .returning();
 
     if (!inserted) {
-      throw new Error("Failed to insert schedule item");
+      throw createError({
+        statusCode: 500,
+        statusMessage: "Failed to insert schedule item",
+      });
     }
+
+    // Invalidate edge cache
+    await purgeCache(["schedule"]).catch((err) =>
+      console.warn("Schedule cache purge error:", err)
+    );
+
+    // Audit log
+    await AuditService.record(db, {
+      userId,
+      action: "create",
+      entity: "schedule",
+      entityId: String(inserted.id),
+      details: {
+        time: input.time,
+        title: input.title.en,
+      },
+    }).catch((err) => console.warn("Audit record error:", err));
 
     return this.formatRow(inserted);
   }
 
-  static async update(db: DrizzleD1Database<typeof schema>, input: UpdateScheduleInput) {
+  /**
+   * Update schedule item by ID, invalidate cache, and log audit event.
+   */
+  static async update(
+    db: DrizzleD1Database<typeof schema>,
+    input: UpdateScheduleInput,
+    userId?: string | null
+  ) {
     const existing = await this.getById(db, input.id);
     if (!existing) {
-      throw new Error(`Schedule item with ID ${input.id} not found`);
+      throw createError({
+        statusCode: 404,
+        statusMessage: `Schedule item with ID ${input.id} not found`,
+      });
     }
 
     const now = Date.now();
@@ -102,13 +175,41 @@ export class ScheduleService {
       .returning();
 
     if (!updated) {
-      throw new Error(`Failed to update schedule item ${input.id}`);
+      throw createError({
+        statusCode: 404,
+        statusMessage: `Failed to update schedule item ${input.id}`,
+      });
     }
+
+    // Invalidate edge cache
+    await purgeCache(["schedule"]).catch((err) =>
+      console.warn("Schedule cache purge error:", err)
+    );
+
+    // Audit log
+    await AuditService.record(db, {
+      userId,
+      action: "update",
+      entity: "schedule",
+      entityId: String(input.id),
+      details: {
+        time: input.time,
+        title: input.title?.en,
+        active: input.active,
+      },
+    }).catch((err) => console.warn("Audit record error:", err));
 
     return this.formatRow(updated);
   }
 
-  static async reorder(db: DrizzleD1Database<typeof schema>, input: ReorderScheduleInput) {
+  /**
+   * Reorder schedule items in batch, invalidate cache, and log audit event.
+   */
+  static async reorder(
+    db: DrizzleD1Database<typeof schema>,
+    input: ReorderScheduleInput,
+    userId?: string | null
+  ) {
     const now = Date.now();
     for (const item of input.items) {
       await db
@@ -116,18 +217,69 @@ export class ScheduleService {
         .set({ sortOrder: item.sortOrder, updatedAt: now })
         .where(eq(dailySchedule.id, item.id));
     }
-    return true;
+
+    // Invalidate edge cache
+    await purgeCache(["schedule"]).catch((err) =>
+      console.warn("Schedule cache purge error:", err)
+    );
+
+    // Audit log
+    await AuditService.record(db, {
+      userId,
+      action: "reorder",
+      entity: "schedule",
+      details: {
+        count: input.items.length,
+      },
+    }).catch((err) => console.warn("Audit record error:", err));
+
+    return { success: true };
   }
 
-  static async delete(db: DrizzleD1Database<typeof schema>, id: number) {
+  /**
+   * Delete schedule item by ID, invalidate cache, and log audit event.
+   */
+  static async delete(
+    db: DrizzleD1Database<typeof schema>,
+    id: number,
+    userId?: string | null
+  ) {
+    const existing = await this.getById(db, id);
+    if (!existing) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: `Schedule item with ID ${id} not found`,
+      });
+    }
+
     const [deleted] = await db
       .delete(dailySchedule)
       .where(eq(dailySchedule.id, id))
       .returning();
-    return !!deleted;
+
+    // Invalidate edge cache
+    await purgeCache(["schedule"]).catch((err) =>
+      console.warn("Schedule cache purge error:", err)
+    );
+
+    // Audit log
+    await AuditService.record(db, {
+      userId,
+      action: "delete",
+      entity: "schedule",
+      entityId: String(id),
+      details: {
+        time: existing.time,
+        title: existing.title.en,
+      },
+    }).catch((err) => console.warn("Audit record error:", err));
+
+    return { success: !!deleted, id };
   }
 
-  // Public cached list: returns active items and computes 'nextAarti'
+  /**
+   * Public cached list: returns active items and computes 'nextAarti'
+   */
   static async getPublicSchedule(
     db: DrizzleD1Database<typeof schema>,
     referenceTimeHhmm?: string
