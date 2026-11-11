@@ -7,6 +7,7 @@ import type { FormattedDeityItem } from "~~/server/services/deities";
 import type { FormattedNoticeItem } from "~~/server/services/notices";
 import type { FormattedEventItem } from "~~/server/services/events";
 import type { BookingStatus, MessageStatus } from "~~/shared/schemas/forms";
+import { defaultAboutData, type AboutPageData } from "~~/server/cms/aboutDefaults";
 
 useHead({
   title: "Sanctum Dashboard - Temple Console",
@@ -25,7 +26,7 @@ watchEffect(() => {
 });
 
 const isSidebarOpen = ref(false);
-const activeModule = ref<"dashboard" | "schedule" | "pujas" | "events" | "deities" | "notices" | "bookings" | "messages">("dashboard");
+const activeModule = ref<"dashboard" | "schedule" | "pujas" | "events" | "deities" | "notices" | "bookings" | "messages" | "about_cms">("dashboard");
 
 // Current date formatted
 const formattedDate = ref("");
@@ -49,6 +50,7 @@ const navItems = [
   { id: "notices", label: "Temple Notices", badge: "Board" },
   { id: "bookings", label: "Puja Bookings", badge: "Devotees" },
   { id: "messages", label: "Contact Messages", badge: "Inquiries" },
+  { id: "about_cms", label: "About Page Content", badge: "CMS" },
 ];
 
 // Navigation Groups for clean sidebar structure
@@ -72,6 +74,7 @@ const navGroups = computed(() => [
     items: [
       { id: "deities", label: "Deities & Shrines", badge: "" },
       { id: "notices", label: "Temple Notices", badge: "" },
+      { id: "about_cms", label: "About Page Content", badge: "CMS" },
     ],
   },
   {
@@ -90,6 +93,64 @@ const navGroups = computed(() => [
     ],
   },
 ]);
+
+
+// =========================================================================
+// ABOUT PAGE CMS STATE & METHODS
+// =========================================================================
+const aboutCmsData = ref<AboutPageData>(JSON.parse(JSON.stringify(defaultAboutData)));
+const loadingAboutCms = ref(false);
+const savingAboutCms = ref(false);
+
+const fetchAboutCmsData = async () => {
+  loadingAboutCms.value = true;
+  try {
+    const res = await $fetch<AboutPageData>("/api/cms/about");
+    if (res) {
+      aboutCmsData.value = JSON.parse(JSON.stringify(res));
+    }
+  } catch (err: any) {
+    console.error("Failed to load about CMS:", err);
+  } finally {
+    loadingAboutCms.value = false;
+  }
+};
+
+const saveAboutCms = async () => {
+  savingAboutCms.value = true;
+  try {
+    const res = await $fetch<{ success: boolean; data: AboutPageData }>("/api/cms/about", {
+      method: "POST",
+      body: { data: aboutCmsData.value },
+    });
+    if (res.success) {
+      showToast("About page content saved successfully!");
+    }
+  } catch (err: any) {
+    showToast(err?.data?.message || err?.message || "Failed to save about page", "error");
+  } finally {
+    savingAboutCms.value = false;
+  }
+};
+
+const resetAboutCms = async () => {
+  if (!confirm("Are you sure you want to reset all About Page content to original temple defaults?")) return;
+  savingAboutCms.value = true;
+  try {
+    const res = await $fetch<{ success: boolean; data: AboutPageData }>("/api/cms/about", {
+      method: "POST",
+      body: { action: "reset" },
+    });
+    if (res.success) {
+      aboutCmsData.value = JSON.parse(JSON.stringify(res.data));
+      showToast("About page content reset to defaults!");
+    }
+  } catch (err: any) {
+    showToast(err?.data?.message || err?.message || "Failed to reset about page", "error");
+  } finally {
+    savingAboutCms.value = false;
+  }
+};
 
 // =========================================================================
 // TOAST NOTIFICATIONS
@@ -148,6 +209,7 @@ onMounted(() => {
   fetchNoticesData();
   fetchBookingsData();
   fetchMessagesData();
+  fetchAboutCmsData();
 });
 
 // Filtered schedule list
@@ -1860,7 +1922,7 @@ const executeDeleteEvent = async () => {
                 activeModule === 'pujas' ? 'Pujas & Services' :
                 activeModule === 'events' ? 'Festivals & Events' :
                 activeModule === 'deities' ? 'Deities & Shrines' :
-                activeModule === 'notices' ? 'Temple Notices' : activeModule === 'bookings' ? 'Puja Bookings' : 'Contact Messages'
+                activeModule === 'notices' ? 'Temple Notices' : activeModule === 'bookings' ? 'Puja Bookings' : activeModule === 'messages' ? 'Contact Messages' : 'About Page Content'
               }}
             </span>
           </div>
@@ -3181,6 +3243,240 @@ const executeDeleteEvent = async () => {
               </div>
             </div>
           </div>
+        </div>
+
+        
+        <!-- =============================================================== -->
+        <!-- TAB 9: ABOUT PAGE CONTENT CMS                                   -->
+        <!-- =============================================================== -->
+        <div v-else-if="activeModule === 'about_cms'" class="tab-pane">
+          <!-- Module Header -->
+          <div class="module-header-row">
+            <div>
+              <h1 class="module-title">About Us Page Customizer</h1>
+              <p class="module-subtitle">
+                Customize the sacred history, hero narrative, spiritual pillars, and pilgrim guidelines displayed on the public About page.
+              </p>
+            </div>
+            <div class="module-header-actions">
+              <button
+                type="button"
+                class="btn-refresh"
+                :disabled="savingAboutCms"
+                @click="resetAboutCms"
+                title="Reset to default temple text"
+              >
+                Reset Defaults
+              </button>
+              <button
+                type="button"
+                class="btn-primary"
+                :disabled="savingAboutCms"
+                @click="saveAboutCms"
+              >
+                <span>{{ savingAboutCms ? 'Saving...' : 'Save About Page' }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Loading state -->
+          <div v-if="loadingAboutCms" class="schedule-table-card">
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <span>Loading About page content from database...</span>
+            </div>
+          </div>
+
+          <form v-else class="cms-form-stack" @submit.prevent="saveAboutCms">
+            <!-- 1. HERO BANNER CARD -->
+            <div class="cms-card">
+              <div class="cms-card-header">
+                <h2 class="cms-card-title">1. Hero Section &amp; Titles</h2>
+                <span class="cms-card-sub">Top banner and introduction on the About page</span>
+              </div>
+              <div class="cms-card-body">
+                <div class="form-group mb-3">
+                  <label class="form-label">Banner Badge Text</label>
+                  <input
+                    v-model="aboutCmsData.hero.badge"
+                    type="text"
+                    class="form-input"
+                    placeholder="e.g. Sacred Abode of Divine Mother · Established Heritage"
+                  />
+                </div>
+
+                <div class="grid-2-cols mb-3">
+                  <div class="form-group">
+                    <label class="form-label">Title (Bengali)</label>
+                    <input
+                      v-model="aboutCmsData.hero.titleBn"
+                      type="text"
+                      class="form-input font-bold"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Title (English)</label>
+                    <input
+                      v-model="aboutCmsData.hero.titleEn"
+                      type="text"
+                      class="form-input font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div class="form-group mb-3">
+                  <label class="form-label">Hero Subtitle / Narrative</label>
+                  <textarea
+                    v-model="aboutCmsData.hero.subtitle"
+                    rows="3"
+                    class="form-textarea"
+                  ></textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. SACRED HISTORY & LORE CARD -->
+            <div class="cms-card">
+              <div class="cms-card-header">
+                <h2 class="cms-card-title">2. Sacred History &amp; Narrative</h2>
+                <span class="cms-card-sub">Historical background, sacred quote, and story paragraphs</span>
+              </div>
+              <div class="cms-card-body">
+                <div class="grid-2-cols mb-3">
+                  <div class="form-group">
+                    <label class="form-label">History Section Heading (English)</label>
+                    <input
+                      v-model="aboutCmsData.history.heading"
+                      type="text"
+                      class="form-input"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">History Subheading (Bengali)</label>
+                    <input
+                      v-model="aboutCmsData.history.headingBn"
+                      type="text"
+                      class="form-input"
+                    />
+                  </div>
+                </div>
+
+                <div class="form-group mb-3">
+                  <label class="form-label">Sacred Pull Quote</label>
+                  <textarea
+                    v-model="aboutCmsData.history.quote"
+                    rows="2"
+                    class="form-textarea"
+                  ></textarea>
+                </div>
+
+                <div class="form-group mb-3">
+                  <label class="form-label">Quote Attribution</label>
+                  <input
+                    v-model="aboutCmsData.history.quoteAuthor"
+                    type="text"
+                    class="form-input"
+                  />
+                </div>
+
+                <div class="form-group mb-3">
+                  <label class="form-label">History Paragraphs</label>
+                  <div
+                    v-for="(para, idx) in aboutCmsData.history.narrativeParagraphs"
+                    :key="idx"
+                    class="mb-2"
+                  >
+                    <label class="text-xs font-bold text-muted mb-1 block">Paragraph {{ idx + 1 }}</label>
+                    <textarea
+                      v-model="aboutCmsData.history.narrativeParagraphs[idx]"
+                      rows="3"
+                      class="form-textarea"
+                    ></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. FOUR SACRED PILLARS -->
+            <div class="cms-card">
+              <div class="cms-card-header">
+                <h2 class="cms-card-title">3. Four Spiritual Pillars</h2>
+                <span class="cms-card-sub">Core spiritual and seva values of the Mandir</span>
+              </div>
+              <div class="cms-card-body">
+                <div class="grid-2-cols">
+                  <div
+                    v-for="(pillar, idx) in aboutCmsData.pillars"
+                    :key="pillar.id"
+                    class="p-3 border rounded mb-3"
+                    style="border: 1px solid var(--adm-border); border-radius: 6px; padding: 1rem;"
+                  >
+                    <div class="form-group mb-2">
+                      <label class="text-xs font-bold text-muted">Pillar {{ idx + 1 }} Title (English)</label>
+                      <input v-model="pillar.title" type="text" class="form-input" />
+                    </div>
+                    <div class="form-group mb-2">
+                      <label class="text-xs font-bold text-muted">Title (Bengali)</label>
+                      <input v-model="pillar.titleBn" type="text" class="form-input" />
+                    </div>
+                    <div class="form-group mb-2">
+                      <label class="text-xs font-bold text-muted">Description</label>
+                      <textarea v-model="pillar.description" rows="2" class="form-textarea"></textarea>
+                    </div>
+                    <div class="form-group">
+                      <label class="text-xs font-bold text-muted">Emphasis Pill</label>
+                      <input v-model="pillar.emphasis" type="text" class="form-input" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. ADMINISTRATION & TRUST -->
+            <div class="cms-card">
+              <div class="cms-card-header">
+                <h2 class="cms-card-title">4. Temple Governance &amp; Trust Information</h2>
+                <span class="cms-card-sub">Governing council, responsibilities, and registration</span>
+              </div>
+              <div class="cms-card-body">
+                <div class="form-group mb-3">
+                  <label class="form-label">Committee Name</label>
+                  <input
+                    v-model="aboutCmsData.administration.committeeName"
+                    type="text"
+                    class="form-input font-bold"
+                  />
+                </div>
+                <div class="form-group mb-3">
+                  <label class="form-label">Governance Overview</label>
+                  <textarea
+                    v-model="aboutCmsData.administration.description"
+                    rows="3"
+                    class="form-textarea"
+                  ></textarea>
+                </div>
+                <div class="form-group mb-3">
+                  <label class="form-label">Registration / Trust Badge Text</label>
+                  <input
+                    v-model="aboutCmsData.administration.registrationInfo"
+                    type="text"
+                    class="form-input"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Save Action Button Bottom -->
+            <div class="module-header-actions mt-4 pb-4">
+              <button
+                type="submit"
+                class="btn-primary"
+                :disabled="savingAboutCms"
+              >
+                <span>{{ savingAboutCms ? 'Saving Changes...' : 'Save About Page Content' }}</span>
+              </button>
+            </div>
+          </form>
         </div>
 
         <!-- =============================================================== -->
@@ -6201,6 +6497,55 @@ input:checked + .switch-slider-blue {
   background: var(--adm-black);
   border-color: var(--adm-black);
   color: #ffffff;
+}
+
+
+/* CMS Form Stack */
+.cms-form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.cms-card {
+  background: var(--adm-surface);
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cms-card-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--adm-border-subtle);
+  background: var(--adm-surface-alt, #fafafa);
+}
+
+.cms-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--adm-text-main);
+  margin: 0 0 0.2rem;
+}
+
+.cms-card-sub {
+  font-size: 0.8rem;
+  color: var(--adm-text-light);
+}
+
+.cms-card-body {
+  padding: 1.5rem;
+}
+
+.grid-2-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .grid-2-cols {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ====================================================
