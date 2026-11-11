@@ -5,6 +5,7 @@ import type { FormattedScheduleItem, NextAartiResult } from "~~/server/services/
 import type { FormattedPujaItem } from "~~/server/services/pujas";
 import type { FormattedDeityItem } from "~~/server/services/deities";
 import type { FormattedNoticeItem } from "~~/server/services/notices";
+import type { FormattedEventItem } from "~~/server/services/events";
 import type { BookingStatus } from "~~/shared/schemas/forms";
 
 useHead({
@@ -24,7 +25,7 @@ watchEffect(() => {
 });
 
 const isSidebarOpen = ref(false);
-const activeModule = ref<"dashboard" | "schedule" | "pujas" | "deities" | "notices" | "bookings">("dashboard");
+const activeModule = ref<"dashboard" | "schedule" | "pujas" | "events" | "deities" | "notices" | "bookings">("dashboard");
 
 // Current date formatted
 const formattedDate = ref("");
@@ -43,6 +44,7 @@ const navItems = [
   { id: "dashboard", label: "Dashboard Overview", icon: "📊", badge: "Live" },
   { id: "schedule", label: "Daily Schedule", icon: "🔔", badge: "Rituals" },
   { id: "pujas", label: "Pujas & Services", icon: "🪔", badge: "Offerings" },
+  { id: "events", label: "Festivals & Events", icon: "🎉", badge: "Festivals" },
   { id: "deities", label: "Deities & Shrines", icon: "🕉️", badge: "Sacred" },
   { id: "notices", label: "Temple Notices", icon: "📢", badge: "Board" },
   { id: "bookings", label: "Puja Bookings", icon: "📋", badge: "Devotees" },
@@ -100,6 +102,7 @@ const fetchScheduleData = async () => {
 onMounted(() => {
   fetchScheduleData();
   fetchPujasData();
+  fetchEventsData();
   fetchDeitiesData();
   fetchNoticesData();
   fetchBookingsData();
@@ -1321,6 +1324,241 @@ const executeDeleteBooking = async () => {
     deletingBooking.value = false;
   }
 };
+
+// =========================================================================
+// EVENTS & FESTIVALS STATE & CRUD
+// =========================================================================
+const eventItems = ref<FormattedEventItem[]>([]);
+const loadingEvents = ref(false);
+const eventSearchQuery = ref("");
+const eventFilter = ref<"all" | "festival" | "special_puja" | "seva" | "upcoming" | "active" | "hidden">("all");
+
+// Dhaka today ISO date string
+const getDhakaToday = () => {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Dhaka",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+};
+
+const fetchEventsData = async () => {
+  loadingEvents.value = true;
+  try {
+    const res = await $trpc.events.list.query({ pageSize: 100 });
+    eventItems.value = res.items;
+  } catch (err: any) {
+    showToast(err?.message || "Failed to load events", "error");
+  } finally {
+    loadingEvents.value = false;
+  }
+};
+
+const filteredEvents = computed(() => {
+  const today = getDhakaToday();
+  return eventItems.value.filter((item) => {
+    // 1. Status / Kind filter
+    if (eventFilter.value === "festival" && item.kind !== "festival") return false;
+    if (eventFilter.value === "special_puja" && item.kind !== "special_puja") return false;
+    if (eventFilter.value === "seva" && item.kind !== "seva") return false;
+    if (eventFilter.value === "upcoming" && item.date < today) return false;
+    if (eventFilter.value === "active" && !item.active) return false;
+    if (eventFilter.value === "hidden" && item.active) return false;
+
+    // 2. Search query
+    if (eventSearchQuery.value.trim()) {
+      const q = eventSearchQuery.value.toLowerCase().trim();
+      const titleEn = item.title?.en?.toLowerCase() || "";
+      const titleBn = item.title?.bn?.toLowerCase() || "";
+      const labelEn = item.label?.en?.toLowerCase() || "";
+      const labelBn = item.label?.bn?.toLowerCase() || "";
+      const slug = item.slug?.toLowerCase() || "";
+      const descEn = item.description?.en?.toLowerCase() || "";
+      const descBn = item.description?.bn?.toLowerCase() || "";
+      return (
+        titleEn.includes(q) ||
+        titleBn.includes(q) ||
+        labelEn.includes(q) ||
+        labelBn.includes(q) ||
+        slug.includes(q) ||
+        descEn.includes(q) ||
+        descBn.includes(q)
+      );
+    }
+
+    return true;
+  });
+});
+
+// Summary counts
+const totalEventsCount = computed(() => eventItems.value.length);
+const upcomingEventsCount = computed(() => {
+  const today = getDhakaToday();
+  return eventItems.value.filter((item) => item.active && item.date >= today).length;
+});
+const activeEventsCount = computed(() => eventItems.value.filter((item) => item.active).length);
+const hiddenEventsCount = computed(() => eventItems.value.filter((item) => !item.active).length);
+const festivalsCount = computed(() => eventItems.value.filter((item) => item.kind === "festival").length);
+
+// Modal state
+const isEventModalOpen = ref(false);
+const isEditingEvent = ref(false);
+const savingEvent = ref(false);
+const eventActiveTab = ref<"en" | "bn">("en");
+
+const eventForm = reactive({
+  id: null as number | null,
+  slug: "",
+  date: "",
+  kind: "festival" as "special_puja" | "festival" | "seva" | "other",
+  time: "",
+  title: { en: "", bn: "" },
+  label: { en: "", bn: "" },
+  description: { en: "", bn: "" },
+  active: true,
+});
+
+const openAddEventModal = () => {
+  isEditingEvent.value = false;
+  eventForm.id = null;
+  eventForm.slug = "";
+  eventForm.date = getDhakaToday();
+  eventForm.kind = "festival";
+  eventForm.time = "";
+  eventForm.title = { en: "", bn: "" };
+  eventForm.label = { en: "", bn: "" };
+  eventForm.description = { en: "", bn: "" };
+  eventForm.active = true;
+  eventActiveTab.value = "en";
+  isEventModalOpen.value = true;
+};
+
+const openEditEventModal = (item: FormattedEventItem) => {
+  isEditingEvent.value = true;
+  eventForm.id = item.id;
+  eventForm.slug = item.slug;
+  eventForm.date = item.date;
+  eventForm.kind = item.kind;
+  eventForm.time = item.time || "";
+  eventForm.title = { en: item.title?.en || "", bn: item.title?.bn || "" };
+  eventForm.label = { en: item.label?.en || "", bn: item.label?.bn || "" };
+  eventForm.description = { en: item.description?.en || "", bn: item.description?.bn || "" };
+  eventForm.active = item.active;
+  eventActiveTab.value = "en";
+  isEventModalOpen.value = true;
+};
+
+const autoGenerateEventSlug = () => {
+  if (eventForm.title.en) {
+    const year = eventForm.date ? `-${eventForm.date.slice(0, 4)}` : "";
+    const base = eventForm.title.en
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    eventForm.slug = `${base}${year}`;
+  }
+};
+
+const toggleEventActive = async (item: FormattedEventItem) => {
+  const newActive = !item.active;
+  item.active = newActive;
+  try {
+    await $trpc.events.setActive.mutate({ id: item.id, active: newActive });
+    showToast(`Event "${item.title.en}" marked as ${newActive ? 'active' : 'hidden'}`);
+  } catch (err: any) {
+    item.active = !newActive;
+    showToast(err?.message || "Failed to update event status", "error");
+  }
+};
+
+const saveEvent = async () => {
+  if (!eventForm.title.en.trim()) {
+    showToast("English title is required", "error");
+    eventActiveTab.value = "en";
+    return;
+  }
+
+  if (!eventForm.slug.trim()) {
+    autoGenerateEventSlug();
+  }
+
+  if (!eventForm.date) {
+    showToast("Event date is required", "error");
+    return;
+  }
+
+  if (!eventForm.description.en.trim()) {
+    showToast("English description is required", "error");
+    eventActiveTab.value = "en";
+    return;
+  }
+
+  savingEvent.value = true;
+  try {
+    const payload = {
+      slug: eventForm.slug.trim(),
+      date: eventForm.date,
+      kind: eventForm.kind,
+      time: eventForm.time.trim() || undefined,
+      title: {
+        en: eventForm.title.en.trim(),
+        bn: eventForm.title.bn.trim(),
+      },
+      label: eventForm.label.en.trim() || eventForm.label.bn.trim() ? {
+        en: eventForm.label.en.trim(),
+        bn: eventForm.label.bn.trim(),
+      } : undefined,
+      description: {
+        en: eventForm.description.en.trim(),
+        bn: eventForm.description.bn.trim(),
+      },
+      active: eventForm.active,
+    };
+
+    if (isEditingEvent.value && eventForm.id) {
+      await $trpc.events.update.mutate({
+        id: eventForm.id,
+        ...payload,
+      });
+      showToast(`Event "${payload.title.en}" updated successfully!`);
+    } else {
+      await $trpc.events.create.mutate(payload);
+      showToast(`Event "${payload.title.en}" created successfully!`);
+    }
+
+    isEventModalOpen.value = false;
+    await fetchEventsData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to save event", "error");
+  } finally {
+    savingEvent.value = false;
+  }
+};
+
+// Delete state
+const deleteConfirmEvent = ref<FormattedEventItem | null>(null);
+const deletingEvent = ref(false);
+
+const confirmDeleteEvent = (item: FormattedEventItem) => {
+  deleteConfirmEvent.value = item;
+};
+
+const executeDeleteEvent = async () => {
+  if (!deleteConfirmEvent.value) return;
+
+  deletingEvent.value = true;
+  try {
+    await $trpc.events.delete.mutate({ id: deleteConfirmEvent.value.id });
+    showToast(`Event "${deleteConfirmEvent.value.title.en}" deleted successfully!`);
+    deleteConfirmEvent.value = null;
+    await fetchEventsData();
+  } catch (err: any) {
+    showToast(err?.message || "Failed to delete event", "error");
+  } finally {
+    deletingEvent.value = false;
+  }
+};
 </script>
 
 <template>
@@ -1442,6 +1680,7 @@ const executeDeleteBooking = async () => {
                 activeModule === 'dashboard' ? 'Overview Dashboard' :
                 activeModule === 'schedule' ? 'Daily Schedule' :
                 activeModule === 'pujas' ? 'Pujas & Services' :
+                activeModule === 'events' ? 'Festivals & Events' :
                 activeModule === 'deities' ? 'Deities & Shrines' :
                 activeModule === 'notices' ? 'Temple Notices' : 'Puja Bookings'
               }}
@@ -1512,7 +1751,19 @@ const executeDeleteBooking = async () => {
               </div>
             </div>
 
-            <!-- 3. Deities & Shrines -->
+            <!-- 3. Festivals & Events -->
+            <div class="kpi-card" @click="activeModule = 'events'">
+              <div class="kpi-icon-wrap purple-icon">🎉</div>
+              <div class="kpi-content">
+                <span class="kpi-label">Festivals & Events</span>
+                <span class="kpi-val">{{ upcomingEventsCount }} <span class="text-xs font-normal text-muted">Upcoming</span></span>
+                <span class="kpi-trend">
+                  <span class="trend-purple font-medium">{{ totalEventsCount }} Total</span> • {{ festivalsCount }} Festivals
+                </span>
+              </div>
+            </div>
+
+            <!-- 4. Deities & Shrines -->
             <div class="kpi-card" @click="activeModule = 'deities'">
               <div class="kpi-icon-wrap gold-icon">🕉️</div>
               <div class="kpi-content">
@@ -1524,7 +1775,7 @@ const executeDeleteBooking = async () => {
               </div>
             </div>
 
-            <!-- 4. Temple Notices -->
+            <!-- 5. Temple Notices -->
             <div class="kpi-card" @click="activeModule = 'notices'">
               <div class="kpi-icon-wrap blue-icon">📢</div>
               <div class="kpi-content">
@@ -1536,7 +1787,7 @@ const executeDeleteBooking = async () => {
               </div>
             </div>
 
-            <!-- 5. Puja Bookings -->
+            <!-- 6. Puja Bookings -->
             <div class="kpi-card" @click="activeModule = 'bookings'">
               <div class="kpi-icon-wrap" :class="newBookingsCount > 0 ? 'amber-icon' : 'green-icon'">📋</div>
               <div class="kpi-content">
@@ -1549,7 +1800,7 @@ const executeDeleteBooking = async () => {
               </div>
             </div>
 
-            <!-- 6. Next Aarti -->
+            <!-- 7. Next Aarti -->
             <div class="kpi-card">
               <div class="kpi-icon-wrap blue-icon">⏱️</div>
               <div class="kpi-content">
@@ -1578,6 +1829,10 @@ const executeDeleteBooking = async () => {
               <button type="button" class="action-btn" @click="activeModule = 'pujas'">
                 <span class="action-btn-icon">🪔</span>
                 <span>Manage Pujas & Services</span>
+              </button>
+              <button type="button" class="action-btn" @click="activeModule = 'events'">
+                <span class="action-btn-icon">🎉</span>
+                <span>Festivals & Events</span>
               </button>
               <button type="button" class="action-btn" @click="activeModule = 'deities'">
                 <span class="action-btn-icon">🕉️</span>
@@ -1999,7 +2254,197 @@ const executeDeleteBooking = async () => {
         </div>
 
         <!-- =============================================================== -->
-        <!-- TAB 4: DEITIES & SHRINES CRUD MANAGER                           -->
+        <!-- TAB 4: FESTIVALS & EVENTS CRUD MANAGER                          -->
+        <!-- =============================================================== -->
+        <div v-else-if="activeModule === 'events'" class="tab-pane">
+          <!-- Module Header -->
+          <div class="module-header-row">
+            <div>
+              <h1 class="module-title">Festivals & Sacred Calendar</h1>
+              <p class="module-subtitle">
+                Publish and schedule temple festivals, special pujas, auspicious tithis, and seva events for devotees.
+              </p>
+            </div>
+            <div class="module-header-actions">
+              <button type="button" class="btn-refresh" @click="fetchEventsData" title="Refresh events list">
+                ↻ Refresh
+              </button>
+              <button type="button" class="btn-add-primary" @click="openAddEventModal">
+                <span>+ Add Event / Festival</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Filters Bar -->
+          <div class="filters-bar">
+            <div class="search-box">
+              <span class="search-icon">🔍</span>
+              <input
+                type="text"
+                v-model="eventSearchQuery"
+                class="search-input"
+                placeholder="Search events by title, tithi, slug, or details..."
+              />
+              <button v-if="eventSearchQuery" class="clear-search-btn" @click="eventSearchQuery = ''">&times;</button>
+            </div>
+
+            <div class="filter-pills">
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': eventFilter === 'all' }"
+                @click="eventFilter = 'all'"
+              >
+                All ({{ totalEventsCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': eventFilter === 'upcoming' }"
+                @click="eventFilter = 'upcoming'"
+              >
+                ⭐ Upcoming ({{ upcomingEventsCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': eventFilter === 'festival' }"
+                @click="eventFilter = 'festival'"
+              >
+                🎉 Festivals ({{ festivalsCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': eventFilter === 'special_puja' }"
+                @click="eventFilter = 'special_puja'"
+              >
+                🪔 Special Pujas
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': eventFilter === 'seva' }"
+                @click="eventFilter = 'seva'"
+              >
+                🌿 Seva
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': eventFilter === 'active' }"
+                @click="eventFilter = 'active'"
+              >
+                Active ({{ activeEventsCount }})
+              </button>
+              <button
+                type="button"
+                class="filter-pill"
+                :class="{ 'filter-pill-active': eventFilter === 'hidden' }"
+                @click="eventFilter = 'hidden'"
+              >
+                Hidden ({{ hiddenEventsCount }})
+              </button>
+            </div>
+          </div>
+
+          <!-- Events Table / Card List -->
+          <div class="schedule-table-card">
+            <div v-if="loadingEvents" class="loading-state">
+              <div class="spinner"></div>
+              <span>Loading temple events from Sanctum database...</span>
+            </div>
+
+            <div v-else-if="filteredEvents.length === 0" class="empty-state">
+              <span class="empty-icon">🎉</span>
+              <h3 class="empty-title">No events or festivals found</h3>
+              <p class="empty-desc">
+                {{ eventSearchQuery ? 'No calendar entries match your search query.' : 'No festivals or events have been scheduled yet.' }}
+              </p>
+              <button type="button" class="btn-add-primary" @click="openAddEventModal">
+                <span>+ Add First Festival / Event</span>
+              </button>
+            </div>
+
+            <div v-else class="event-items-list">
+              <div
+                v-for="item in filteredEvents"
+                :key="item.id"
+                class="event-row-item"
+                :class="{ 'item-inactive': !item.active }"
+              >
+                <!-- Date, Kind & Time Meta Col -->
+                <div class="event-meta-col">
+                  <span class="event-date-badge">📅 {{ item.date }}</span>
+                  <span v-if="item.date >= getDhakaToday()" class="event-upcoming-tag">⭐ UPCOMING</span>
+                  <span v-else class="event-past-tag">PAST</span>
+                  <span class="event-kind-tag" :class="`kind-${item.kind}`">
+                    {{
+                      item.kind === 'festival' ? '🎉 Festival' :
+                      item.kind === 'special_puja' ? '🪔 Special Puja' :
+                      item.kind === 'seva' ? '🌿 Seva' : '📌 Other'
+                    }}
+                  </span>
+                  <span v-if="item.time" class="event-time-tag">⏰ {{ item.time }}</span>
+                </div>
+
+                <!-- Title, Tithi, Slug & Description Col -->
+                <div class="event-details-col">
+                  <div class="title-row">
+                    <h3 class="event-title-en">{{ item.title.en }}</h3>
+                    <span v-if="item.title.bn" class="event-title-bn">{{ item.title.bn }}</span>
+                    <span v-if="item.label?.en || item.label?.bn" class="event-tithi-chip" :title="item.label.bn || item.label.en">
+                      🌕 {{ item.label.en || item.label.bn }}
+                    </span>
+                    <span class="event-slug-pill">/{{ item.slug }}</span>
+                  </div>
+                  <p class="event-desc-en">{{ item.description.en }}</p>
+                  <p v-if="item.description.bn" class="event-desc-bn">{{ item.description.bn }}</p>
+                </div>
+
+                <!-- Active Toggle Switch Col -->
+                <div class="event-controls-col">
+                  <div class="mini-toggle-row">
+                    <label class="switch-toggle" :title="item.active ? 'Click to hide from public site' : 'Click to show on public site'">
+                      <input
+                        type="checkbox"
+                        :checked="item.active"
+                        @change="toggleEventActive(item)"
+                      />
+                      <span class="switch-slider round"></span>
+                    </label>
+                    <span class="status-caption" :class="item.active ? 'caption-active' : 'caption-hidden'">
+                      {{ item.active ? 'Active' : 'Hidden' }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Action Buttons Col -->
+                <div class="actions-col">
+                  <button
+                    type="button"
+                    class="btn-action-edit"
+                    title="Edit festival or event"
+                    @click="openEditEventModal(item)"
+                  >
+                    <span>✏️ Edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-action-del"
+                    title="Delete festival or event"
+                    @click="confirmDeleteEvent(item)"
+                  >
+                    <span>🗑️</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- TAB 5: DEITIES & SHRINES CRUD MANAGER                           -->
         <!-- =============================================================== -->
         <div v-else-if="activeModule === 'deities'" class="tab-pane">
           <!-- Module Header -->
@@ -2177,7 +2622,7 @@ const executeDeleteBooking = async () => {
         </div>
 
         <!-- =============================================================== -->
-        <!-- TAB 5: TEMPLE NOTICES CRUD MANAGER                             -->
+        <!-- TAB 6: TEMPLE NOTICES CRUD MANAGER                             -->
         <!-- =============================================================== -->
         <div v-else-if="activeModule === 'notices'" class="tab-pane">
           <!-- Module Header -->
@@ -2359,7 +2804,7 @@ const executeDeleteBooking = async () => {
         </div>
 
         <!-- =============================================================== -->
-        <!-- TAB 6: PUJA BOOKINGS MANAGER                                    -->
+        <!-- TAB 7: PUJA BOOKINGS MANAGER                                    -->
         <!-- =============================================================== -->
         <div v-else-if="activeModule === 'bookings'" class="tab-pane">
           <!-- Module Header -->
@@ -3473,6 +3918,252 @@ const executeDeleteBooking = async () => {
             @click="executeDeleteBooking"
           >
             <span>{{ deletingBooking ? 'Deleting...' : 'Yes, Delete Record' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- ADD / EDIT EVENT OR FESTIVAL MODAL                                  -->
+    <!-- =================================================================== -->
+    <div v-if="isEventModalOpen" class="modal-backdrop" @click.self="isEventModalOpen = false">
+      <div class="modal-dialog modal-dialog-lg">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-tag">{{ isEditingEvent ? 'EDIT FESTIVAL / EVENT' : 'NEW FESTIVAL / EVENT' }}</span>
+            <h2 class="modal-title">{{ isEditingEvent ? 'Edit Festival or Event' : 'Add New Festival or Event' }}</h2>
+          </div>
+          <button type="button" class="modal-close-btn" @click="isEventModalOpen = false">&times;</button>
+        </div>
+
+        <form @submit.prevent="saveEvent" class="modal-form">
+          <div class="modal-body">
+            <!-- Language Selector Tabs -->
+            <div class="lang-tabs-bar">
+              <button
+                type="button"
+                class="lang-tab-btn"
+                :class="{ 'lang-tab-active': eventActiveTab === 'en' }"
+                @click="eventActiveTab = 'en'"
+              >
+                <span>🇬🇧 English Details</span>
+                <span v-if="!eventForm.title.en" class="req-dot">*</span>
+              </button>
+              <button
+                type="button"
+                class="lang-tab-btn"
+                :class="{ 'lang-tab-active': eventActiveTab === 'bn' }"
+                @click="eventActiveTab = 'bn'"
+              >
+                <span>🇧🇩 বাংলা বিবরণ (Bengali)</span>
+              </button>
+            </div>
+
+            <!-- TAB 1: ENGLISH DETAILS -->
+            <div v-show="eventActiveTab === 'en'" class="lang-tab-content">
+              <div class="form-group">
+                <label class="form-label">
+                  Festival / Event Title (English) <span class="required-star">*</span>
+                </label>
+                <input
+                  type="text"
+                  v-model="eventForm.title.en"
+                  class="form-input"
+                  placeholder="e.g. Maha Kali Puja & Deepavali Festival"
+                  @blur="autoGenerateEventSlug"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">
+                  Lunar Tithi / Bengali Date (English) <span class="optional-badge">Optional</span>
+                </label>
+                <input
+                  type="text"
+                  v-model="eventForm.label.en"
+                  class="form-input"
+                  placeholder="e.g. Kartika Amavasya, Maha Ashtami, or Purnima"
+                />
+                <span class="form-hint">Auspicious lunar phase or traditional calendar reference.</span>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">
+                  Event Overview & Schedule (English) <span class="required-star">*</span>
+                </label>
+                <textarea
+                  v-model="eventForm.description.en"
+                  class="form-textarea"
+                  rows="4"
+                  placeholder="Detailed schedule of rituals, pushpanjali, aarti, and prasad distribution..."
+                  required
+                ></textarea>
+              </div>
+            </div>
+
+            <!-- TAB 2: BENGALI DETAILS -->
+            <div v-show="eventActiveTab === 'bn'" class="lang-tab-content">
+              <div class="form-group">
+                <label class="form-label">
+                  উৎসব / অনুষ্ঠানের শিরোনাম (বাংলা)
+                </label>
+                <input
+                  type="text"
+                  v-model="eventForm.title.bn"
+                  class="form-input font-bengali"
+                  placeholder="যেমন: শ্রীশ্রী শ্যামা পূজা ও দীপাবলি মহোৎসব"
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">
+                  তিথি / পঞ্জিকা অনুসারে তারিখ (বাংলা) <span class="optional-badge">ঐচ্ছিক</span>
+                </label>
+                <input
+                  type="text"
+                  v-model="eventForm.label.bn"
+                  class="form-input font-bengali"
+                  placeholder="যেমন: কার্তিক অমাবস্যা তিথি বা শুভ দীপাবলি"
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">
+                  উৎসবের বিস্তারিত বিবরণ ও নির্ঘণ্ট (বাংলা)
+                </label>
+                <textarea
+                  v-model="eventForm.description.bn"
+                  class="form-textarea font-bengali"
+                  rows="4"
+                  placeholder="পূজার সময়সূচী, পুষ্পাঞ্জলি, হোমযজ্ঞ ও মহাপ্রসাদ বিতরণের বিবরণ..."
+                ></textarea>
+              </div>
+            </div>
+
+            <!-- COMMON SETTINGS (Both Languages) -->
+            <div class="common-section-divider">
+              <span>Festival Configuration & Scheduling</span>
+            </div>
+
+            <!-- Row: Kind, Date & Time -->
+            <div class="form-row-3">
+              <div class="form-group">
+                <label class="form-label">
+                  Event Category <span class="required-star">*</span>
+                </label>
+                <select v-model="eventForm.kind" class="form-input">
+                  <option value="festival">🎉 Festival (উৎসব)</option>
+                  <option value="special_puja">🪔 Special Puja (বিশেষ পূজা)</option>
+                  <option value="seva">🌿 Seva / Offering (সেবা)</option>
+                  <option value="other">📌 Other (অন্যান্য)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">
+                  Event Date <span class="required-star">*</span>
+                </label>
+                <input
+                  type="date"
+                  v-model="eventForm.date"
+                  class="form-input"
+                  required
+                />
+                <span class="form-hint">Gregorian date in Asia/Dhaka time.</span>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">
+                  Timing <span class="optional-badge">Optional</span>
+                </label>
+                <input
+                  type="text"
+                  v-model="eventForm.time"
+                  class="form-input font-mono"
+                  placeholder="e.g. 19:30 or 7:00 PM"
+                />
+                <span class="form-hint">Time or time range for the rituals.</span>
+              </div>
+            </div>
+
+            <!-- Row: Slug & Active Toggle -->
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label">
+                  URL Slug <span class="required-star">*</span>
+                </label>
+                <div class="slug-input-wrap">
+                  <input
+                    type="text"
+                    v-model="eventForm.slug"
+                    class="form-input font-mono"
+                    placeholder="e.g. maha-kali-puja-2026"
+                    required
+                  />
+                  <button
+                    type="button"
+                    class="btn-slug-gen"
+                    title="Generate slug from English title and date"
+                    @click="autoGenerateEventSlug"
+                  >
+                    Auto
+                  </button>
+                </div>
+                <span class="form-hint">Lowercase alphanumeric characters and hyphens only.</span>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Calendar Visibility</label>
+                <div class="checkbox-row-card">
+                  <label class="switch-toggle">
+                    <input type="checkbox" v-model="eventForm.active" />
+                    <span class="switch-slider round"></span>
+                  </label>
+                  <span class="checkbox-label">
+                    {{ eventForm.active ? 'Published on Public Site' : 'Hidden from Devotees' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-cancel" @click="isEventModalOpen = false">Cancel</button>
+            <button type="submit" class="btn-save-primary" :disabled="savingEvent">
+              <span>{{ savingEvent ? 'Saving Event...' : (isEditingEvent ? 'Save Changes' : 'Publish Event') }}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- DELETE EVENT CONFIRMATION MODAL                                     -->
+    <!-- =================================================================== -->
+    <div v-if="deleteConfirmEvent" class="modal-backdrop" @click.self="deleteConfirmEvent = null">
+      <div class="modal-dialog modal-dialog-sm">
+        <div class="modal-header">
+          <h2 class="modal-title text-red-500">Confirm Event Deletion</h2>
+          <button type="button" class="modal-close-btn" @click="deleteConfirmEvent = null">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="confirm-text">
+            Are you sure you want to permanently delete event <strong>{{ deleteConfirmEvent.title.en }}</strong> ({{ deleteConfirmEvent.date }})?
+          </p>
+          <p class="confirm-warning">
+            This will immediately remove the event from the public calendar and purge edge caches. An audit log record will be maintained.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-cancel" @click="deleteConfirmEvent = null">Cancel</button>
+          <button
+            type="button"
+            class="btn-delete-confirm"
+            :disabled="deletingEvent"
+            @click="executeDeleteEvent"
+          >
+            <span>{{ deletingEvent ? 'Deleting...' : 'Yes, Delete Event' }}</span>
           </button>
         </div>
       </div>
@@ -5522,6 +6213,186 @@ input:checked + .switch-slider-blue {
   color: #f59e0b;
 }
 
+/* ====================================================
+   FESTIVALS & EVENTS STYLING
+   ==================================================== */
+.purple-icon {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.trend-purple {
+  color: #c084fc;
+}
+
+.event-items-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.event-row-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.15rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  gap: 1.25rem;
+  transition: background 0.15s ease;
+}
+
+.event-row-item:last-child {
+  border-bottom: none;
+}
+
+.event-row-item:hover {
+  background: var(--bg-card-hover, rgba(255, 255, 255, 0.02));
+}
+
+.event-meta-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 150px;
+}
+
+.event-date-badge {
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: monospace;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+}
+
+.event-upcoming-tag {
+  font-size: 0.675rem;
+  font-weight: 800;
+  color: #a855f7;
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  width: fit-content;
+  letter-spacing: 0.04em;
+}
+
+.event-past-tag {
+  font-size: 0.675rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: rgba(148, 163, 184, 0.1);
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  width: fit-content;
+}
+
+.event-kind-tag {
+  font-size: 0.725rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.kind-festival {
+  background: rgba(168, 85, 247, 0.18);
+  color: #d8b4fe;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+.kind-special_puja {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.kind-seva {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.kind-other {
+  background: rgba(100, 116, 139, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.3);
+}
+
+.event-time-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: monospace;
+  color: var(--accent);
+}
+
+.event-details-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.event-title-en {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.event-title-bn {
+  font-size: 0.95rem;
+  color: var(--accent);
+  font-family: var(--font-bengali, inherit);
+}
+
+.event-tithi-chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.event-slug-pill {
+  font-size: 0.725rem;
+  font-family: monospace;
+  color: var(--text-muted);
+  background: var(--bg-primary);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.event-desc-en {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.event-desc-bn {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0;
+  font-family: var(--font-bengali, inherit);
+}
+
+.event-controls-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 100px;
+}
+
 @media (max-width: 768px) {
   .admin-topbar { padding: 0 1.25rem; }
   .dashboard-body { padding: 1.5rem 1.25rem 3rem; }
@@ -5532,6 +6403,7 @@ input:checked + .switch-slider-blue {
   .puja-row-item { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
   .puja-toggles-col { flex-direction: row; gap: 1.5rem; width: 100%; justify-content: flex-start; }
   .form-row-3 { flex-direction: column; gap: 0.75rem; }
+  .event-row-item { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
   .deity-row-item { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
   .notice-row-item { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
   .booking-row-item { flex-direction: column; align-items: flex-start; gap: 0.75rem; }

@@ -4,13 +4,18 @@ import { localized, slug, isoDate } from "./common";
 export const eventKind = z.enum(["special_puja", "festival", "seva", "other"]);
 export type EventKind = z.infer<typeof eventKind>;
 
+export const optionalLocalized = z.object({
+  en: z.string().default(""),
+  bn: z.string().default(""),
+});
+
 export const createEventSchema = z.object({
   slug: slug,
   date: isoDate,
   kind: eventKind.default("special_puja"),
   title: localized,
-  label: localized.optional(),
-  time: z.string().max(50).optional(),
+  label: optionalLocalized.optional().nullable(),
+  time: z.string().max(50).optional().nullable(),
   description: localized,
   active: z.boolean().default(true),
 });
@@ -29,6 +34,7 @@ export const listEventsQuerySchema = z.object({
   search: z.string().trim().optional(),
   kind: eventKind.optional(),
   month: z.string().regex(/^\d{4}-\d{2}$/, "Must be YYYY-MM").optional(),
+  upcoming: z.coerce.boolean().optional(),
   active: z.coerce.boolean().optional(),
 });
 
