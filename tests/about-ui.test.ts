@@ -3,16 +3,13 @@ import { defaultAboutData } from "../server/cms/aboutDefaults";
 
 describe("About Page UI Components & Data Mapping", () => {
   it("has valid defaultAboutData with all required fields", () => {
-    expect(defaultAboutData.hero.titleEn).toBeDefined();
-    expect(defaultAboutData.hero.titleBn).toBeDefined();
+    expect(defaultAboutData.hero.title).toBeDefined();
     expect(defaultAboutData.hero.subtitle).toBeDefined();
     expect(defaultAboutData.history.narrativeParagraphs.length).toBeGreaterThan(0);
     expect(defaultAboutData.history.quote).toBeDefined();
     expect(defaultAboutData.history.quoteAuthor).toBeDefined();
-    expect(defaultAboutData.pillars.length).toBe(4);
-    expect(defaultAboutData.shrines.length).toBeGreaterThan(0);
+    expect(defaultAboutData.history.milestones.length).toBeGreaterThan(0);
     expect(defaultAboutData.administration.keyResponsibilities.length).toBeGreaterThan(0);
-    expect(defaultAboutData.guidelines.length).toBeGreaterThan(0);
   });
 
   it("handles image slider behavior logic cleanly (0 images, 1 image, 2+ images)", () => {

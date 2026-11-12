@@ -32,12 +32,10 @@ describe("About Page CMS & Content Customization", () => {
   });
 
   it("verifies defaultAboutData structure and required fields", () => {
-    expect(defaultAboutData.hero.titleEn).toBe("Sanctuary of Devotion, Peace & Community");
-    expect(defaultAboutData.hero.titleBn).toBe("শ্রীশ্রী গোলপাহাড় মহাশ্মশান কালী মন্দির");
+    expect(defaultAboutData.hero.title).toBe("Sanctuary of Devotion, Peace & Community");
     expect(defaultAboutData.history.narrativeParagraphs.length).toBeGreaterThan(0);
-    expect(defaultAboutData.pillars.length).toBe(4);
-    expect(defaultAboutData.shrines.length).toBe(4);
-    expect(defaultAboutData.guidelines.length).toBe(5);
+    expect(defaultAboutData.history.milestones.length).toBeGreaterThan(0);
+    expect(defaultAboutData.administration.keyResponsibilities.length).toBeGreaterThan(0);
   });
 
   it("stores and retrieves customized about page data", async () => {
@@ -45,7 +43,7 @@ describe("About Page CMS & Content Customization", () => {
       ...defaultAboutData,
       hero: {
         ...defaultAboutData.hero,
-        titleEn: "Custom Sanctum Heritage",
+        title: "Custom Sanctum Heritage",
       },
     };
 
@@ -64,17 +62,17 @@ describe("About Page CMS & Content Customization", () => {
 
     expect(records.length).toBe(1);
     const parsed = JSON.parse(records[0].data);
-    expect(parsed.hero.titleEn).toBe("Custom Sanctum Heritage");
+    expect(parsed.hero.title).toBe("Custom Sanctum Heritage");
   });
 
   it("syncs about page to pages table with slug 'about'", async () => {
     const now = Date.now();
     await db.insert(schema.pages).values({
       slug: "about",
-      title: JSON.stringify({ en: defaultAboutData.hero.titleEn, bn: defaultAboutData.hero.titleBn }),
+      title: JSON.stringify({ en: defaultAboutData.hero.title, bn: defaultAboutData.hero.title }),
       body: JSON.stringify({
         en: defaultAboutData.history.narrativeParagraphs.join("\n\n"),
-        bn: defaultAboutData.hero.subtitle,
+        bn: defaultAboutData.history.narrativeParagraphs.join("\n\n"),
       }),
       published: true,
       createdAt: now,

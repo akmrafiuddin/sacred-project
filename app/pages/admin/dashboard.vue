@@ -3305,23 +3305,13 @@ const executeDeleteEvent = async () => {
                   />
                 </div>
 
-                <div class="grid-2-cols mb-3">
-                  <div class="form-group">
-                    <label class="form-label">Title (Bengali)</label>
-                    <input
-                      v-model="aboutCmsData.hero.titleBn"
-                      type="text"
-                      class="form-input font-bold"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Title (English)</label>
-                    <input
-                      v-model="aboutCmsData.hero.titleEn"
-                      type="text"
-                      class="form-input font-bold"
-                    />
-                  </div>
+                <div class="form-group mb-3">
+                  <label class="form-label">Page Title</label>
+                  <input
+                    v-model="aboutCmsData.hero.title"
+                    type="text"
+                    class="form-input font-bold"
+                  />
                 </div>
 
                 <div class="form-group mb-3">
@@ -3331,6 +3321,15 @@ const executeDeleteEvent = async () => {
                     rows="3"
                     class="form-textarea"
                   ></textarea>
+                </div>
+
+                <div class="form-group mb-3">
+                  <label class="form-label">Established Note / Heritage Tagline</label>
+                  <input
+                    v-model="aboutCmsData.hero.establishedText"
+                    type="text"
+                    class="form-input"
+                  />
                 </div>
               </div>
             </div>
@@ -3342,23 +3341,13 @@ const executeDeleteEvent = async () => {
                 <span class="cms-card-sub">Historical background, sacred quote, and story paragraphs</span>
               </div>
               <div class="cms-card-body">
-                <div class="grid-2-cols mb-3">
-                  <div class="form-group">
-                    <label class="form-label">History Section Heading (English)</label>
-                    <input
-                      v-model="aboutCmsData.history.heading"
-                      type="text"
-                      class="form-input"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">History Subheading (Bengali)</label>
-                    <input
-                      v-model="aboutCmsData.history.headingBn"
-                      type="text"
-                      class="form-input"
-                    />
-                  </div>
+                <div class="form-group mb-3">
+                  <label class="form-label">History Section Heading</label>
+                  <input
+                    v-model="aboutCmsData.history.heading"
+                    type="text"
+                    class="form-input"
+                  />
                 </div>
 
                 <div class="form-group mb-3">
@@ -3394,51 +3383,50 @@ const executeDeleteEvent = async () => {
                     ></textarea>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            <!-- 3. FOUR SACRED PILLARS -->
-            <div class="cms-card">
-              <div class="cms-card-header">
-                <h2 class="cms-card-title">3. Four Spiritual Pillars</h2>
-                <span class="cms-card-sub">Core spiritual and seva values of the Mandir</span>
-              </div>
-              <div class="cms-card-body">
-                <div class="grid-2-cols">
+                <!-- Historical Milestones -->
+                <div class="form-group mb-3">
+                  <label class="form-label">Historical Milestones</label>
                   <div
-                    v-for="(pillar, idx) in aboutCmsData.pillars"
-                    :key="pillar.id"
-                    class="p-3 border rounded mb-3"
-                    style="border: 1px solid var(--adm-border); border-radius: 6px; padding: 1rem;"
+                    v-for="(milestone, idx) in aboutCmsData.history.milestones"
+                    :key="idx"
+                    class="p-3 border rounded mb-2"
+                    style="border: 1px solid var(--adm-border); border-radius: 6px; padding: 0.75rem;"
                   >
-                    <div class="form-group mb-2">
-                      <label class="text-xs font-bold text-muted">Pillar {{ idx + 1 }} Title (English)</label>
-                      <input v-model="pillar.title" type="text" class="form-input" />
-                    </div>
-                    <div class="form-group mb-2">
-                      <label class="text-xs font-bold text-muted">Title (Bengali)</label>
-                      <input v-model="pillar.titleBn" type="text" class="form-input" />
-                    </div>
-                    <div class="form-group mb-2">
-                      <label class="text-xs font-bold text-muted">Description</label>
-                      <textarea v-model="pillar.description" rows="2" class="form-textarea"></textarea>
+                    <div class="grid-2-cols mb-2">
+                      <div class="form-group">
+                        <label class="text-xs font-bold text-muted">Period</label>
+                        <input v-model="milestone.period" type="text" class="form-input" />
+                      </div>
+                      <div class="form-group">
+                        <label class="text-xs font-bold text-muted">Title</label>
+                        <input v-model="milestone.title" type="text" class="form-input font-bold" />
+                      </div>
                     </div>
                     <div class="form-group">
-                      <label class="text-xs font-bold text-muted">Emphasis Pill</label>
-                      <input v-model="pillar.emphasis" type="text" class="form-input" />
+                      <label class="text-xs font-bold text-muted">Description</label>
+                      <textarea v-model="milestone.description" rows="2" class="form-textarea"></textarea>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- 4. ADMINISTRATION & TRUST -->
+            <!-- 3. ADMINISTRATION & TRUST -->
             <div class="cms-card">
               <div class="cms-card-header">
-                <h2 class="cms-card-title">4. Temple Governance &amp; Trust Information</h2>
+                <h2 class="cms-card-title">3. Temple Governance &amp; Trust Information</h2>
                 <span class="cms-card-sub">Governing council, responsibilities, and registration</span>
               </div>
               <div class="cms-card-body">
+                <div class="form-group mb-3">
+                  <label class="form-label">Section Title</label>
+                  <input
+                    v-model="aboutCmsData.administration.title"
+                    type="text"
+                    class="form-input"
+                  />
+                </div>
                 <div class="form-group mb-3">
                   <label class="form-label">Committee Name</label>
                   <input
@@ -3454,6 +3442,20 @@ const executeDeleteEvent = async () => {
                     rows="3"
                     class="form-textarea"
                   ></textarea>
+                </div>
+                <div class="form-group mb-3">
+                  <label class="form-label">Key Responsibilities</label>
+                  <div
+                    v-for="(resp, idx) in aboutCmsData.administration.keyResponsibilities"
+                    :key="idx"
+                    class="mb-2"
+                  >
+                    <input
+                      v-model="aboutCmsData.administration.keyResponsibilities[idx]"
+                      type="text"
+                      class="form-input"
+                    />
+                  </div>
                 </div>
                 <div class="form-group mb-3">
                   <label class="form-label">Registration / Trust Badge Text</label>

@@ -61,9 +61,7 @@ export default defineEventHandler(async (event) => {
     administration: { ...merged.administration, ...(dataToSave.administration || {}) },
   };
 
-  if (dataToSave.pillars) merged.pillars = dataToSave.pillars;
-  if (dataToSave.shrines) merged.shrines = dataToSave.shrines;
-  if (dataToSave.guidelines) merged.guidelines = dataToSave.guidelines;
+  if (dataToSave.images) merged.images = dataToSave.images;
 
   const now = new Date().toISOString();
   await db
@@ -88,7 +86,7 @@ export default defineEventHandler(async (event) => {
       .insert(schema.pages)
       .values({
         slug: "about",
-        title: JSON.stringify({ en: merged.hero.titleEn, bn: merged.hero.titleBn }),
+        title: JSON.stringify({ en: merged.hero.title, bn: "" }),
         body: JSON.stringify({
           en: merged.history.narrativeParagraphs.join("\n\n"),
           bn: merged.hero.subtitle,
@@ -100,7 +98,7 @@ export default defineEventHandler(async (event) => {
       .onConflictDoUpdate({
         target: schema.pages.slug,
         set: {
-          title: JSON.stringify({ en: merged.hero.titleEn, bn: merged.hero.titleBn }),
+          title: JSON.stringify({ en: merged.hero.title, bn: "" }),
           body: JSON.stringify({
             en: merged.history.narrativeParagraphs.join("\n\n"),
             bn: merged.hero.subtitle,
