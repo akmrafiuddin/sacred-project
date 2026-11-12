@@ -225,53 +225,9 @@ onBeforeUnmount(() => {
           Deities
         </NuxtLink>
 
-        <!-- Puja Dropdown -->
-        <div class="nav-dropdown-wrapper">
-          <button
-            type="button"
-            class="nav-item nav-dropdown-trigger"
-            :class="{ 'parent-active': isPujaActive, 'dropdown-active': isPujaOpen }"
-            @click.stop="togglePujaMenu"
-            aria-haspopup="true"
-            :aria-expanded="isPujaOpen"
-          >
-            <span>Puja</span>
-            <svg
-              class="chevron-icon"
-              :class="{ 'rotate-180': isPujaOpen }"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                clip-rule="evenodd"
-              />
-            </svg>
-          </button>
-
-          <!-- Puja Dropdown Menu -->
-          <Transition name="fade-scale">
-            <div v-if="isPujaOpen" class="nav-dropdown-menu puja-menu" @click.stop>
-              <NuxtLink
-                to="/puja-and-rituals"
-                class="dropdown-link"
-                active-class="dropdown-link-active"
-                @click="isPujaOpen = false"
-              >
-                <span class="dropdown-item-text">Puja and Ritual</span>
-              </NuxtLink>
-              <NuxtLink
-                to="/puja-list-and-charges"
-                class="dropdown-link"
-                active-class="dropdown-link-active"
-                @click="isPujaOpen = false"
-              >
-                <span class="dropdown-item-text">Puja List</span>
-              </NuxtLink>
-            </div>
-          </Transition>
-        </div>
+        <NuxtLink to="/puja-and-rituals" class="nav-item" active-class="nav-item-active">
+          Puja &amp; Rituals
+        </NuxtLink>
 
         <NuxtLink to="/festivals-and-events" class="nav-item" active-class="nav-item-active">
           Festivals
@@ -485,28 +441,14 @@ onBeforeUnmount(() => {
               Deities
             </NuxtLink>
 
-            <!-- Puja Group in Mobile Menu -->
-            <div class="mobile-subgroup">
-              <span class="mobile-subgroup-title">Puja</span>
-              <div class="mobile-subgroup-items">
-                <NuxtLink
-                  to="/puja-and-rituals"
-                  class="mobile-nav-item mobile-sub-link"
-                  active-class="mobile-nav-active"
-                  @click="isMobileMenuOpen = false"
-                >
-                  Puja and Ritual
-                </NuxtLink>
-                <NuxtLink
-                  to="/puja-list-and-charges"
-                  class="mobile-nav-item mobile-sub-link"
-                  active-class="mobile-nav-active"
-                  @click="isMobileMenuOpen = false"
-                >
-                  Puja List
-                </NuxtLink>
-              </div>
-            </div>
+            <NuxtLink
+              to="/puja-and-rituals"
+              class="mobile-nav-item"
+              active-class="mobile-nav-active"
+              @click="isMobileMenuOpen = false"
+            >
+              Puja &amp; Rituals
+            </NuxtLink>
 
             <NuxtLink
               to="/festivals-and-events"

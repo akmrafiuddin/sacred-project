@@ -2304,6 +2304,9 @@ const executeDeleteEvent = async () => {
               </p>
             </div>
             <div class="module-header-actions">
+              <NuxtLink to="/puja-and-rituals" target="_blank" class="btn-refresh" title="View live puja & rituals page">
+                View Public Page
+              </NuxtLink>
               <button type="button" class="btn-refresh" @click="fetchPujasData" title="Refresh pujas list">
                 Refresh
               </button>
@@ -2515,6 +2518,9 @@ const executeDeleteEvent = async () => {
               </p>
             </div>
             <div class="module-header-actions">
+              <NuxtLink to="/festivals-and-events" target="_blank" class="btn-refresh" title="View live festivals & events page">
+                View Public Page
+              </NuxtLink>
               <button type="button" class="btn-refresh" @click="fetchEventsData" title="Refresh events list">
                 Refresh
               </button>
@@ -2882,6 +2888,9 @@ const executeDeleteEvent = async () => {
               </p>
             </div>
             <div class="module-header-actions">
+              <NuxtLink to="/notice-news" target="_blank" class="btn-refresh" title="View live temple notices page">
+                View Public Page
+              </NuxtLink>
               <button type="button" class="btn-refresh" @click="fetchNoticesData" title="Refresh notices list">
                 Refresh
               </button>
