@@ -2703,6 +2703,9 @@ const executeDeleteEvent = async () => {
               </p>
             </div>
             <div class="module-header-actions">
+              <NuxtLink to="/deities" target="_blank" class="btn-refresh" title="View live deities page on public site">
+                View Public Page
+              </NuxtLink>
               <button type="button" class="btn-refresh" @click="fetchDeitiesData" title="Refresh deities list">
                 Refresh
               </button>
@@ -4153,6 +4156,18 @@ const executeDeleteEvent = async () => {
                   class="form-input"
                   placeholder="e.g. /images/deities/kali.jpg or https://..."
                 />
+                <div class="deity-presets-bar mt-1">
+                  <span class="text-xs text-muted mr-1 font-bold">Presets:</span>
+                  <button type="button" class="btn-preset-mini" @click="deityForm.imageId = '/images/deities/kali.jpg'">Maa Kali</button>
+                  <button type="button" class="btn-preset-mini" @click="deityForm.imageId = '/images/deities/shiva.jpg'">Lord Shiva</button>
+                  <button type="button" class="btn-preset-mini" @click="deityForm.imageId = '/images/deities/ganesha.jpg'">Lord Ganesha</button>
+                  <button type="button" class="btn-preset-mini" @click="deityForm.imageId = '/images/deities/krishna.jpg'">Radha Krishna</button>
+                  <button type="button" class="btn-preset-mini" @click="deityForm.imageId = '/images/deities/lakshmi.jpg'">Maa Lakshmi</button>
+                </div>
+                <div v-if="deityForm.imageId" class="deity-preview-box mt-2">
+                  <img :src="deityForm.imageId" alt="Preview" class="deity-preview-thumb" onerror="this.style.display='none'" />
+                  <button type="button" class="btn-clear-preview" @click="deityForm.imageId = ''">Remove Image</button>
+                </div>
                 <span class="hint-text">Path to deity portrait or darshan photo</span>
               </div>
             </div>
@@ -6419,6 +6434,66 @@ input:checked + .switch-slider-blue {
 .deity-subtitle-bn {
   color: var(--adm-text-light);
   margin-left: 0.25rem;
+}
+
+.deity-presets-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.btn-preset-mini {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 4px;
+  background: var(--adm-surface);
+  border: 1px solid var(--adm-border);
+  color: var(--adm-text-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.btn-preset-mini:hover {
+  background: var(--adm-black);
+  color: #ffffff;
+}
+
+.deity-preview-box {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  background: var(--adm-bg);
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-sm);
+  margin-top: 0.5rem;
+}
+
+.deity-preview-thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--adm-border);
+}
+
+.btn-clear-preview {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #dc2626;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+.btn-clear-preview:hover {
+  text-decoration: underline;
 }
 
 /* ====================================================
