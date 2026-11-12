@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "temple-cf",
+  "name": "sacred-project",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
   "d1_databases": [
@@ -10,11 +10,12 @@
       "database_id": "62174d16-ae6a-451b-a4be-e24de799aee6",
       "migrations_dir": "drizzle"
     }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "MEDIA",
-      "bucket_name": "temple-cf-media"
-    }
   ]
+  // R2 bucket temporarily commented out until R2 is enabled in Cloudflare Dashboard:
+  // "r2_buckets": [
+  //   {
+  //     "binding": "MEDIA",
+  //     "bucket_name": "temple-cf-media"
+  //   }
+  // ]
 }
