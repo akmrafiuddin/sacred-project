@@ -210,7 +210,7 @@ useHead({
                 Sacred Darshan
               </button>
               <NuxtLink
-                to="/puja-list-and-charges"
+                to="/puja-booking"
                 class="btn-puja-link"
                 :aria-label="`Book a puja for ${deity.name}`"
               >

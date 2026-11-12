@@ -282,7 +282,7 @@ useHead({
 
             <div class="puja-card-footer">
               <NuxtLink
-                :to="`/contact?subject=${encodeURIComponent('Puja Booking: ' + puja.name)}`"
+                :to="`/puja-booking?puja=${puja.slug}&id=${puja.id}`"
                 class="btn-book-puja"
                 :aria-label="`Request booking for ${puja.name}`"
               >

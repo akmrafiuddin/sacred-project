@@ -75,6 +75,47 @@ export class BookingsService {
     };
   }
 
+  /**
+   * Public reference code lookup for booking status check.
+   */
+  static async getByRef(db: DrizzleD1Database<typeof schema>, ref: string) {
+    const rows = await db
+      .select({
+        ref: pujaBookings.ref,
+        name: pujaBookings.name,
+        preferredDate: pujaBookings.preferredDate,
+        gotra: pujaBookings.gotra,
+        status: pujaBookings.status,
+        note: pujaBookings.note,
+        adminNote: pujaBookings.adminNote,
+        createdAt: pujaBookings.createdAt,
+        pujaNameRaw: pujas.name,
+        pujaPrice: pujas.priceBdt,
+        pujaDuration: pujas.duration,
+      })
+      .from(pujaBookings)
+      .leftJoin(pujas, eq(pujaBookings.pujaId, pujas.id))
+      .where(eq(pujaBookings.ref, ref.trim().toUpperCase()))
+      .limit(1);
+
+    const row = rows[0];
+    if (!row) return null;
+
+    return {
+      ref: row.ref,
+      name: row.name,
+      preferredDate: row.preferredDate,
+      gotra: row.gotra,
+      status: row.status,
+      note: row.note,
+      adminNote: row.adminNote,
+      createdAt: row.createdAt,
+      pujaName: parseJson(row.pujaNameRaw, { en: "Temple Puja", bn: "" }),
+      pujaPrice: row.pujaPrice,
+      pujaDuration: row.pujaDuration,
+    };
+  }
+
   // --- Devotee Queries (Session-Scoped) ---
   static async getUserBookings(db: DrizzleD1Database<typeof schema>, userId: string) {
     const rows = await db
