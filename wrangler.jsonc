@@ -6,8 +6,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "temple-cf-db",
-      "database_id": "local-placeholder",
+      "database_name": "sacred-project",
+      "database_id": "62174d16-ae6a-451b-a4be-e24de799aee6",
       "migrations_dir": "drizzle"
     }
   ],
