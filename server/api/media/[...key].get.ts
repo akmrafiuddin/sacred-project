@@ -10,7 +10,15 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const bucket = getMediaBucket(event);
+  const env = event.context.cloudflare?.env as { MEDIA?: any } | undefined;
+  const bucket = env?.MEDIA;
+  if (!bucket) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: "Media storage is not configured yet",
+    });
+  }
+
   const object = await bucket.get(key);
 
   if (!object) {

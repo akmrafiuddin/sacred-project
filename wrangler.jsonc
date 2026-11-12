@@ -1,20 +1,27 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "temple-cf",
+  "name": "sacred-project",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "temple-cf-db",
-      "database_id": "local-placeholder",
+      "database_name": "sacred-project",
+      "database_id": "62174d16-ae6a-451b-a4be-e24de799aee6",
       "migrations_dir": "drizzle"
     }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "MEDIA",
-      "bucket_name": "temple-cf-media"
-    }
   ]
+  // NOTE: Cloudflare R2 bucket binding is currently disabled because R2 is not yet enabled
+  // in your Cloudflare account (code: 10042).
+  // Once you enable R2 in Cloudflare Dashboard (R2 Object Storage -> Enable R2) and create
+  // the bucket 'temple-cf-media' (or run: npx wrangler r2 bucket create temple-cf-media),
+  // uncomment the r2_buckets section below:
+  //
+  // ,
+  // "r2_buckets": [
+  //   {
+  //     "binding": "MEDIA",
+  //     "bucket_name": "temple-cf-media"
+  //   }
+  // ]
 }

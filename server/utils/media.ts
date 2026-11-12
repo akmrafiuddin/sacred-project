@@ -151,8 +151,8 @@ export function getMediaBucket(event: H3Event): R2Bucket {
 
   if (!mediaBinding) {
     throw createError({
-      statusCode: 500,
-      statusMessage: "Cloudflare R2 Bucket binding 'MEDIA' is not available in environment",
+      statusCode: 503,
+      statusMessage: "Cloudflare R2 Bucket binding 'MEDIA' is not available. Please enable R2 in Cloudflare Dashboard and attach the bucket in wrangler.jsonc.",
     });
   }
 
