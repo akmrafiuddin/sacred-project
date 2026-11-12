@@ -1,6 +1,8 @@
 export default defineNuxtConfig({
   compatibilityDate: "2026-11-01",
   devtools: { enabled: false },
+  spaLoadingTemplate: false,
+  ssr: true,
   modules: ["nitro-cloudflare-dev"],
   build: { transpile: ["trpc-nuxt"] },
   nitro: {

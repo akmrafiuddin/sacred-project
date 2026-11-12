@@ -33,20 +33,6 @@ useHead({
 
     <!-- 7. DONATION / SEVA (Centered Card - Above Footer) -->
     <HomeDonation variant="classic" />
-
-    <!-- Floating Demo Switcher -->
-    <aside class="demo-switcher" aria-label="Demo Layout Switcher">
-      <div class="switcher-group">
-        <NuxtLink to="/home-fast" class="switcher-pill pill-fast">
-          <span class="switcher-dot fast-dot"></span>
-          <span>View Optimized Page (⚡ Fast)</span>
-        </NuxtLink>
-        <NuxtLink to="/home-2" class="switcher-pill">
-          <span class="switcher-dot kesari-dot"></span>
-          <span>View Layout 2 (Kesari Saffron)</span>
-        </NuxtLink>
-      </div>
-    </aside>
   </div>
 </template>
 
@@ -55,71 +41,5 @@ useHead({
   width: 100%;
   display: flex;
   flex-direction: column;
-}
-
-/* Floating Demo Switcher */
-.demo-switcher {
-  position: fixed;
-  bottom: 1.75rem;
-  right: 1.75rem;
-  z-index: 999;
-}
-
-.switcher-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  align-items: flex-end;
-}
-
-.switcher-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.65rem 1.15rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 9999px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  text-decoration: none;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: all 0.2s ease;
-}
-
-.switcher-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: var(--gold, #E0A526);
-}
-
-.switcher-dot.fast-dot {
-  background-color: #10b981;
-}
-
-.switcher-dot.kesari-dot {
-  background-color: var(--kesari, #ea580c);
-}
-
-.switcher-pill:hover {
-  transform: translateY(-2px);
-  border-color: var(--gold, #E0A526);
-  box-shadow: 0 14px 34px var(--accent-glow);
-}
-
-@media (max-width: 640px) {
-  .demo-switcher {
-    bottom: 1rem;
-    right: 1rem;
-  }
-
-  .switcher-pill {
-    padding: 0.5rem 0.9rem;
-    font-size: 0.775rem;
-  }
 }
 </style>
