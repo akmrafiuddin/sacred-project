@@ -140,87 +140,127 @@ html.light {
   --kesari: #EA580C;
   --kesari-light: #FB923C;
 
+  /* Dark Mode Palette Tokens (available globally) */
+  --bg-main: #21262D;
+  --bg-panel: #161B22;
+  --bg-card: #1C2128;
+  --bg-hover: #252B33;
+  --border-subtle: #30363D;
+  --accent-gold: #D4AF37;
+  --accent-green: #4ADE80;
+  --accent-red: #EF4444;
+  --accent-blue: #6366F1;
+
   /* Fonts */
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-serif: 'Cinzel', 'Playfair Display', Georgia, serif;
 }
 
 /* --------------------------------------------------------------------------
-   PALETTE B: MIDNIGHT & HIBISCUS (Dark - Optional Alternative)
+   DARK MODE COLOR PALETTE (Slate / Blue-Grey Modern Architecture)
+   Exact Tokens & Hierarchy per Dark Mode Implementation Guide
 -------------------------------------------------------------------------- */
 html[data-theme="dark"],
 html.dark {
-  /* Semantic Tokens per Section 4 */
-  --color-bg: #14101F;
-  --color-surface: #241B36;
-  --color-brand: #D7263D;
-  --color-brand-deep: #0D0A15;
-  --color-accent: #E6B34A;
-  --color-text: #F3EBDD;
-  --color-on-brand: #FFFFFF;
+  /* Exact Tokens */
+  --bg-main: #21262D;            /* Primary canvas background */
+  --bg-panel: #161B22;           /* Sidebars, distinct panels, right/left columns */
+  --bg-card: #1C2128;            /* Individual items, team boxes, list items */
+  --bg-hover: #252B33;           /* Hover states for cards and buttons */
 
-  /* Explicit Palette B Color Tokens */
-  --midnight: #14101F;
-  --midnight-deep: #0D0A15;
-  --indigo: #241B36;
-  --dusk: #3A2D52;
-  --hibiscus: #D7263D;
-  --hibiscus-light: #F0505F;
-  --gold: #E6B34A;
-  --ivory: #F3EBDD;
+  --text-primary: #FFFFFF;       /* Headings, names, primary data, active states */
+  --text-secondary: #8B949E;     /* Labels, dates, metadata, inactive text */
 
-  /* UI System Variables (Palette B) */
+  --border-subtle: #30363D;      /* Section dividers, card outlines */
+
+  --accent-gold: #D4AF37;        /* Primary highlights, winner paths, active indicators */
+  --accent-green: #4ADE80;       /* Live status, positive trends, online dots */
+  --accent-red: #EF4444;         /* Alerts, specific team branding */
+  --accent-blue: #6366F1;        /* Info icons, specific team branding */
+
+  /* Application Rules Mapping */
   --nav-height: 72px;
-  --bg-primary: #14101F;                          /* midnight (60% dominant) */
-  --bg-secondary: #191426;                        /* deep midnight */
-  --bg-card: #241B36;                             /* indigo (30% secondary) */
-  --bg-panel: #241B36;                            /* indigo panel */
-  --border-color: #3A2D52;                        /* dusk (30% borders) */
-  --border-subtle: rgba(58, 45, 82, 0.65);
-  --text-primary: #F3EBDD;                        /* ivory */
-  --text-secondary: rgba(243, 235, 221, 0.85);   /* ivory at 85% */
-  --text-muted: rgba(243, 235, 221, 0.60);       /* ivory at 60% */
-  --accent: #D7263D;                              /* hibiscus (10%) */
-  --accent-light: #F0505F;                        /* hibiscus-light */
-  --accent-glow: rgba(215, 38, 61, 0.25);
-  --accent-text: #E6B34A;                         /* Temple Gold (WCAG AA text emphasis on dark surfaces, ~9:1) */
-  --brand: #D7263D;                               /* hibiscus */
-  --brand-deep: #0D0A15;                          /* midnight-deep */
-  --heading-color: #F3EBDD;                       /* ivory */
 
-  /* Navbar: indigo bg, ivory text, dusk bottom border, active link gold */
-  --nav-bg: #241B36;
-  --nav-bg-scrolled: #241B36;
-  --nav-text: #F3EBDD;
-  --nav-border: #3A2D52;
-  --nav-hover-bg: rgba(58, 45, 82, 0.55);
-  --nav-hover-text: #E6B34A;
-  --nav-active-color: #E6B34A;
-  --action-btn-bg: rgba(58, 45, 82, 0.4);
-  --action-btn-border: #3A2D52;
-  --action-btn-hover: rgba(58, 45, 82, 0.8);
-  --dropdown-bg: #241B36;
-  --mobile-drawer-bg: #14101F;
-  --mobile-item-bg: rgba(243, 235, 221, 0.04);
+  /* Main Layout: Apply --bg-main to the primary body/main content area */
+  --bg-primary: var(--bg-main);                           /* #21262D */
+  --color-bg: var(--bg-main);                             /* #21262D */
+
+  /* Sidebars/Panels: Apply --bg-panel to navigation bars or side widgets */
+  --bg-secondary: var(--bg-panel);                        /* #161B22 */
+  --bg-panel: #161B22;                                    /* #161B22 */
+
+  /* Cards/Items: Apply --bg-card to individual components */
+  --bg-card: #1C2128;                                     /* #1C2128 */
+  --color-surface: var(--bg-card);                        /* #1C2128 */
+  --action-btn-bg: var(--bg-card);
+  --mobile-item-bg: var(--bg-card);
+
+  /* Borders: Avoid heavy borders. Use --border-subtle */
+  --border-color: var(--border-subtle);                   /* #30363D */
+  --border-subtle: #30363D;                               /* #30363D */
+
+  /* Text Contrast: --text-primary for headings/high-importance, --text-secondary for supporting text */
+  --text-primary: #FFFFFF;                                /* #FFFFFF */
+  --text-secondary: #8B949E;                              /* #8B949E */
+  --text-muted: #8B949E;                                  /* #8B949E */
+  --heading-color: var(--text-primary);                   /* #FFFFFF */
+  --color-text: var(--text-primary);                      /* #FFFFFF */
+
+  /* Accents & Highlights: Primary Accent --accent-gold for active indicators, primary highlights */
+  --accent: var(--accent-gold);                           /* #D4AF37 */
+  --accent-light: #E0C158;
+  --accent-glow: rgba(212, 175, 55, 0.22);
+  --accent-text: var(--accent-gold);                      /* #D4AF37 text highlight */
+  --color-accent: var(--accent-gold);                     /* #D4AF37 */
+  --brand: var(--accent-gold);
+  --color-brand: var(--accent-gold);
+  --color-brand-deep: var(--bg-panel);                    /* #161B22 */
+  --color-on-brand: #161B22;
+
+  /* Status Indicators: --accent-green for Live status & online dots */
+  --color-live: var(--accent-green);                      /* #4ADE80 */
+
+  /* Navbar: Apply --bg-panel, text-primary, active-color accent-gold */
+  --nav-bg: var(--bg-panel);                              /* #161B22 */
+  --nav-bg-scrolled: var(--bg-panel);                     /* #161B22 */
+  --nav-text: var(--text-primary);                        /* #FFFFFF */
+  --nav-border: var(--border-subtle);                     /* #30363D */
+  --nav-hover-bg: var(--bg-hover);                        /* #252B33 */
+  --nav-hover-text: var(--accent-gold);                   /* #D4AF37 */
+  --nav-active-color: var(--accent-gold);                 /* #D4AF37 */
+  --action-btn-border: var(--border-subtle);              /* #30363D */
+  --action-btn-hover: var(--bg-hover);                    /* #252B33 */
+  --dropdown-bg: var(--bg-panel);                         /* #161B22 */
+  --mobile-drawer-bg: var(--bg-panel);                    /* #161B22 */
 
   /* Buttons */
-  --btn-primary-bg: #D7263D;                      /* hibiscus */
-  --btn-primary-text: #FFFFFF;
-  --btn-primary-hover: #BF1E33;
-  --btn-cta-bg: #E6B34A;                          /* gold */
-  --btn-cta-text: #14101F;                        /* midnight */
-  --btn-cta-hover: #D4A036;
+  --btn-primary-bg: var(--accent-gold);                   /* #D4AF37 */
+  --btn-primary-text: #161B22;
+  --btn-primary-hover: #C59F2D;
+  --btn-cta-bg: var(--accent-gold);                       /* #D4AF37 */
+  --btn-cta-text: #161B22;
+  --btn-cta-hover: #C59F2D;
 
-  /* Footer: midnight-deep bg, ivory text, gold headings */
-  --footer-bg: #0D0A15;
-  --footer-text: #F3EBDD;
-  --footer-text-muted: rgba(243, 235, 221, 0.70);
-  --footer-heading: #E6B34A;
-  --footer-border: #3A2D52;
+  /* Footer: Apply --bg-panel, text-secondary, heading accent-gold, border-subtle */
+  --footer-bg: var(--bg-panel);                           /* #161B22 */
+  --footer-text: var(--text-secondary);                   /* #8B949E */
+  --footer-text-muted: var(--text-secondary);             /* #8B949E */
+  --footer-heading: var(--accent-gold);                   /* #D4AF37 */
+  --footer-border: var(--border-subtle);                  /* #30363D */
 
-  /* Calendar Selected Day per COLOR_PALETTE.md: hibiscus bg, white text */
-  --cal-selected-bg: #D7263D;
-  --cal-selected-text: #FFFFFF;
+  /* Calendar / Pickers Selected Day */
+  --cal-selected-bg: var(--accent-gold);                  /* #D4AF37 */
+  --cal-selected-text: #161B22;
+
+  /* Legacy Aliases for Component Fallbacks */
+  --midnight: var(--bg-main);                             /* #21262D */
+  --midnight-deep: var(--bg-panel);                       /* #161B22 */
+  --indigo: var(--bg-card);                               /* #1C2128 */
+  --dusk: var(--border-subtle);                           /* #30363D */
+  --hibiscus: var(--accent-red);                          /* #EF4444 */
+  --hibiscus-light: #F87171;
+  --gold: var(--accent-gold);                             /* #D4AF37 */
+  --ivory: var(--text-primary);                           /* #FFFFFF */
 
   /* Kesari Alternative Accent override for /home-2 */
   --kesari: #EA580C;
@@ -335,5 +375,64 @@ body,
 .site-header,
 .site-footer {
   transition: background-color 0.4s ease, color 0.3s ease, border-color 0.35s ease;
+}
+
+/* --------------------------------------------------------------------------
+   DARK MODE COMPONENT APPLICATION RULES
+-------------------------------------------------------------------------- */
+/* Sidebars/Panels: Apply --bg-panel to navigation bars */
+html[data-theme="dark"] .site-header,
+html.dark .site-header {
+  background-color: var(--nav-bg);
+  border-bottom: 1px solid var(--nav-border);
+}
+
+/* Cards/Items: Apply --bg-hover on hover for subtle background shift */
+html[data-theme="dark"] .deity-card:hover,
+html.dark .deity-card:hover,
+html[data-theme="dark"] .puja-card:hover,
+html.dark .puja-card:hover,
+html[data-theme="dark"] .event-card:hover,
+html.dark .event-card:hover,
+html[data-theme="dark"] .schedule-card:hover,
+html.dark .schedule-card:hover,
+html[data-theme="dark"] .category-card:hover,
+html.dark .category-card:hover,
+html[data-theme="dark"] .hero-slider-card:hover,
+html.dark .hero-slider-card:hover,
+html[data-theme="dark"] .lookup-card:hover,
+html.dark .lookup-card:hover {
+  background-color: var(--bg-hover) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+/* Buttons hover states */
+html[data-theme="dark"] .btn-secondary:hover,
+html.dark .btn-secondary:hover,
+html[data-theme="dark"] .btn-action.secondary:hover,
+html.dark .btn-action.secondary:hover,
+html[data-theme="dark"] .btn-action.outline:hover,
+html.dark .btn-action.outline:hover {
+  background-color: var(--bg-hover) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Status Indicators: strictly --accent-green for Live status & online dots */
+html[data-theme="dark"] .live-pulse .pulse-dot,
+html.dark .live-pulse .pulse-dot,
+html[data-theme="dark"] .beacon-dot,
+html.dark .beacon-dot,
+html[data-theme="dark"] .status-beacon,
+html.dark .status-beacon,
+html[data-theme="dark"] .status-circle,
+html.dark .status-circle {
+  background-color: var(--accent-green) !important;
+  box-shadow: 0 0 8px var(--accent-green) !important;
+}
+
+html[data-theme="dark"] .live-pulse .pulse-ring,
+html.dark .live-pulse .pulse-ring {
+  background-color: var(--accent-green) !important;
 }
 </style>

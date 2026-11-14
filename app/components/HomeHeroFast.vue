@@ -546,14 +546,15 @@ const scrollToNext = () => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #22c55e;
+  background: var(--accent-green, #4ADE80);
 }
 
 .pulse-ring {
   position: absolute;
   inset: -3px;
   border-radius: 50%;
-  background: rgba(34, 197, 94, 0.45);
+  background: var(--accent-green, #4ADE80);
+  opacity: 0.45;
   animation: pulsePing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
@@ -708,8 +709,8 @@ const scrollToNext = () => {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 8px #22c55e;
+  background: var(--accent-green, #4ADE80);
+  box-shadow: 0 0 8px var(--accent-green, #4ADE80);
 }
 
 .beacon-label {
@@ -1283,8 +1284,8 @@ html[data-theme="light"] .kesari-highlight {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background-color: #22c55e;
-  box-shadow: 0 0 8px #22c55e;
+  background-color: var(--accent-green, #4ADE80);
+  box-shadow: 0 0 8px var(--accent-green, #4ADE80);
 }
 
 .shrine-title {
