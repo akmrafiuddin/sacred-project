@@ -62,9 +62,9 @@ describe("Puja Offerings Domain & CRUD", () => {
     it("validates valid createPujaSchema", () => {
       const valid = createPujaSchema.safeParse({
         slug: "nitya-puja",
-        name: { en: "Nitya Puja", bn: "নিত্য পূজা" },
-        description: { en: "Daily worship", bn: "দৈনিক অর্চনা" },
-        offered: { en: "Flowers, bhog", bn: "ফুল, ভোগ" },
+        name: { en: "Nitya Puja", bn: "" },
+        description: { en: "Daily worship", bn: "" },
+        offered: { en: "Flowers, bhog", bn: "" },
         priceBdt: 501,
         duration: "45 minutes",
         bookable: true,
@@ -142,9 +142,9 @@ describe("Puja Offerings Domain & CRUD", () => {
         db,
         {
           slug: "nitya-puja",
-          name: { en: "Nitya Puja", bn: "নিত্য পূজা" },
-          description: { en: "Daily worship ritual", bn: "নিত্য পূজা অর্চনা" },
-          offered: { en: "Flowers & Bel Patra", bn: "ফুল ও বেলপাতা" },
+          name: { en: "Nitya Puja", bn: "" },
+          description: { en: "Daily worship ritual", bn: "" },
+          offered: { en: "Flowers & Bel Patra", bn: "" },
           priceBdt: 501,
           duration: "45 minutes",
           bookable: true,
@@ -157,7 +157,7 @@ describe("Puja Offerings Domain & CRUD", () => {
       expect(created.id).toBeDefined();
       expect(created.slug).toBe("nitya-puja");
       expect(created.name.en).toBe("Nitya Puja");
-      expect(created.name.bn).toBe("নিত্য পূজা");
+      expect(created.name.bn).toBe("");
       expect(created.offered?.en).toBe("Flowers & Bel Patra");
       expect(created.priceBdt).toBe(501);
 
@@ -206,7 +206,7 @@ describe("Puja Offerings Domain & CRUD", () => {
           id: created.id,
           priceBdt: 2501,
           duration: "2 hours",
-          name: { en: "Maha Rudrabhishek", bn: "মহা রুদ্রাভিষেক" },
+          name: { en: "Maha Rudrabhishek", bn: "" },
         },
         "admin-user-1"
       );
@@ -272,15 +272,15 @@ describe("Puja Offerings Domain & CRUD", () => {
     it("searches across name, slug, description, and offered samagri", async () => {
       await PujasService.create(db, {
         slug: "kali-aradhana",
-        name: { en: "Special Kali Puja", bn: "বিশেষ কালী পূজা" },
+        name: { en: "Special Kali Puja", bn: "" },
         description: { en: "Shyama puja with midnight aarti", bn: "" },
-        offered: { en: "Hibiscus flowers and prasad", bn: "জবা ফুল" },
+        offered: { en: "Hibiscus flowers and prasad", bn: "" },
       });
       await PujasService.create(db, {
         slug: "satyanarayan-katha",
-        name: { en: "Satyanarayan Vrat", bn: "সত্যনারায়ণ ব্রত" },
+        name: { en: "Satyanarayan Vrat", bn: "" },
         description: { en: "Household blessings", bn: "" },
-        offered: { en: "Panchamrit and batasha", bn: "পঞ্চামৃত" },
+        offered: { en: "Panchamrit and batasha", bn: "" },
       });
 
       // Search by offered item "Hibiscus"

@@ -2,9 +2,11 @@
 import { watchEffect } from "vue";
 import { useAuth } from "~/composables/useAuth";
 
-const { isAuthenticated, isStaff } = useAuth();
+const { isAuthenticated, isPending, isStaff } = useAuth();
 
 watchEffect(() => {
+  if (isPending.value) return;
+
   if (isAuthenticated.value) {
     if (isStaff.value) {
       navigateTo("/admin/dashboard");

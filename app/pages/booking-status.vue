@@ -249,7 +249,7 @@ useHead({
 
           <div v-if="booking.pujaPrice" class="detail-item">
             <span class="detail-label">Dakshina / Charges</span>
-            <span class="detail-val">৳{{ booking.pujaPrice.toLocaleString() }}</span>
+            <span class="detail-val">BDT {{ booking.pujaPrice.toLocaleString() }}</span>
           </div>
 
           <div class="detail-item">

@@ -6,10 +6,12 @@ useHead({
   title: "Sanctum Login - Temple Console",
 });
 
-const { isAuthenticated, isStaff, isUser, login } = useAuth();
+const { isAuthenticated, isPending, isStaff, isUser, login } = useAuth();
 
 // If already logged in, redirect based on role
 watchEffect(() => {
+  if (isPending.value) return;
+
   if (isAuthenticated.value) {
     if (isStaff.value) {
       navigateTo("/admin/dashboard");

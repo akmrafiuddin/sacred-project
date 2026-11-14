@@ -11,7 +11,13 @@
       "migrations_dir": "drizzle"
     }
   ]
-  // R2 bucket temporarily commented out until R2 is enabled in Cloudflare Dashboard:
+  // NOTE: Cloudflare R2 bucket binding is currently disabled because R2 is not yet enabled
+  // in your Cloudflare account (code: 10042).
+  // Once you enable R2 in Cloudflare Dashboard (R2 Object Storage -> Enable R2) and create
+  // the bucket 'temple-cf-media' (or run: npx wrangler r2 bucket create temple-cf-media),
+  // uncomment the r2_buckets section below:
+  //
+  // ,
   // "r2_buckets": [
   //   {
   //     "binding": "MEDIA",

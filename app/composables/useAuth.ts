@@ -28,6 +28,7 @@ export const useAuth = () => {
   });
 
   const isAuthenticated = computed(() => !!user.value);
+  const isPending = computed(() => session.value?.isPending ?? false);
   const role = computed<Role | "guest">(() => user.value?.role || "guest");
   const isAdmin = computed(() => role.value === "admin");
   const isEditor = computed(() => role.value === "editor");
@@ -79,6 +80,7 @@ export const useAuth = () => {
     user,
     currentUser: user, // Alias for legacy code
     isAuthenticated,
+    isPending,
     role,
     isAdmin,
     isEditor,

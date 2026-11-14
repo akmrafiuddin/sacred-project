@@ -28,7 +28,8 @@ export const bookingsRouter = router({
         input.status,
         input.adminNote,
         input.handledBy || ctx.user?.name || "Admin",
-        ctx.user?.id
+        ctx.user?.id,
+        input.customDakshina
       );
     }),
 

@@ -52,10 +52,16 @@ export class BookingsService {
       ref = generateBookingRef();
     }
 
+    const isCustom = input.pujaType === "custom" || (!input.pujaId && !!input.customPujaName);
+
     await db.insert(pujaBookings).values({
       ref,
       userId: userId || null,
-      pujaId: input.pujaId || null,
+      pujaId: isCustom ? null : (input.pujaId || null),
+      pujaType: isCustom ? "custom" : "standard",
+      customPujaName: isCustom ? (input.customPujaName?.trim() || null) : null,
+      customDakshina: null,
+      specialInstructions: input.specialInstructions ? input.specialInstructions.trim() : null,
       name: input.name.trim(),
       phone: input.phone.trim(),
       email: input.email ? input.email.trim() : null,
@@ -82,6 +88,10 @@ export class BookingsService {
     const rows = await db
       .select({
         ref: pujaBookings.ref,
+        pujaType: pujaBookings.pujaType,
+        customPujaName: pujaBookings.customPujaName,
+        customDakshina: pujaBookings.customDakshina,
+        specialInstructions: pujaBookings.specialInstructions,
         name: pujaBookings.name,
         preferredDate: pujaBookings.preferredDate,
         gotra: pujaBookings.gotra,
@@ -101,8 +111,14 @@ export class BookingsService {
     const row = rows[0];
     if (!row) return null;
 
+    const isCustom = row.pujaType === "custom";
+
     return {
       ref: row.ref,
+      pujaType: row.pujaType,
+      customPujaName: row.customPujaName,
+      customDakshina: row.customDakshina,
+      specialInstructions: row.specialInstructions,
       name: row.name,
       preferredDate: row.preferredDate,
       gotra: row.gotra,
@@ -110,9 +126,11 @@ export class BookingsService {
       note: row.note,
       adminNote: row.adminNote,
       createdAt: row.createdAt,
-      pujaName: parseJson(row.pujaNameRaw, { en: "Temple Puja", bn: "" }),
-      pujaPrice: row.pujaPrice,
-      pujaDuration: row.pujaDuration,
+      pujaName: isCustom
+        ? { en: row.customPujaName || "Custom Sacred Puja", bn: "" }
+        : parseJson(row.pujaNameRaw, { en: "Temple Puja", bn: "" }),
+      pujaPrice: isCustom ? (row.customDakshina || null) : row.pujaPrice,
+      pujaDuration: isCustom ? "Personalized" : row.pujaDuration,
     };
   }
 
@@ -180,6 +198,10 @@ export class BookingsService {
       conditions.push(eq(pujaBookings.status, query.status));
     }
 
+    if (query?.pujaType) {
+      conditions.push(eq(pujaBookings.pujaType, query.pujaType));
+    }
+
     if (query?.date) {
       conditions.push(eq(pujaBookings.preferredDate, query.date));
     }
@@ -192,7 +214,8 @@ export class BookingsService {
           like(pujaBookings.phone, q),
           like(pujaBookings.email, q),
           like(pujaBookings.ref, q),
-          like(pujaBookings.gotra, q)
+          like(pujaBookings.gotra, q),
+          like(pujaBookings.customPujaName, q)
         )
       );
     }
@@ -206,6 +229,10 @@ export class BookingsService {
           ref: pujaBookings.ref,
           userId: pujaBookings.userId,
           pujaId: pujaBookings.pujaId,
+          pujaType: pujaBookings.pujaType,
+          customPujaName: pujaBookings.customPujaName,
+          customDakshina: pujaBookings.customDakshina,
+          specialInstructions: pujaBookings.specialInstructions,
           name: pujaBookings.name,
           phone: pujaBookings.phone,
           email: pujaBookings.email,
@@ -235,10 +262,16 @@ export class BookingsService {
 
     const total = Number(totalResult[0]?.count || 0);
 
-    const formattedItems = items.map((row) => ({
-      ...row,
-      pujaName: parseJson(row.pujaNameRaw, { en: "", bn: "" }),
-    }));
+    const formattedItems = items.map((row) => {
+      const isCustom = row.pujaType === "custom";
+      return {
+        ...row,
+        pujaName: isCustom
+          ? { en: row.customPujaName || "Custom Sacred Puja", bn: "" }
+          : parseJson(row.pujaNameRaw, { en: "", bn: "" }),
+        pujaPrice: isCustom ? (row.customDakshina ?? null) : row.pujaPrice,
+      };
+    });
 
     return {
       items: formattedItems,
@@ -256,6 +289,10 @@ export class BookingsService {
         ref: pujaBookings.ref,
         userId: pujaBookings.userId,
         pujaId: pujaBookings.pujaId,
+        pujaType: pujaBookings.pujaType,
+        customPujaName: pujaBookings.customPujaName,
+        customDakshina: pujaBookings.customDakshina,
+        specialInstructions: pujaBookings.specialInstructions,
         name: pujaBookings.name,
         phone: pujaBookings.phone,
         email: pujaBookings.email,
@@ -279,9 +316,14 @@ export class BookingsService {
     const row = rows[0];
     if (!row) return null;
 
+    const isCustom = row.pujaType === "custom";
+
     return {
       ...row,
-      pujaName: parseJson(row.pujaNameRaw, { en: "", bn: "" }),
+      pujaName: isCustom
+        ? { en: row.customPujaName || "Custom Sacred Puja", bn: "" }
+        : parseJson(row.pujaNameRaw, { en: "", bn: "" }),
+      pujaPrice: isCustom ? (row.customDakshina ?? null) : row.pujaPrice,
     };
   }
 
@@ -291,7 +333,8 @@ export class BookingsService {
     status: BookingStatus,
     adminNote?: string,
     handledBy?: string,
-    userId?: string | null
+    userId?: string | null,
+    customDakshina?: number | null
   ) {
     const now = Date.now();
     const updateData: Partial<typeof pujaBookings.$inferInsert> = {
@@ -301,6 +344,7 @@ export class BookingsService {
 
     if (adminNote !== undefined) updateData.adminNote = adminNote;
     if (handledBy !== undefined) updateData.handledBy = handledBy;
+    if (customDakshina !== undefined) updateData.customDakshina = customDakshina;
 
     const [updated] = await db
       .update(pujaBookings)
@@ -319,6 +363,7 @@ export class BookingsService {
           status,
           handledBy,
           adminNote,
+          customDakshina,
         },
       }).catch((err) => console.warn("Audit record error:", err));
     }

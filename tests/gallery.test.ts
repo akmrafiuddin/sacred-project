@@ -44,8 +44,8 @@ describe("Phase 3 — Gallery & Albums Domain", () => {
   it("validates album and item schemas with Zod", () => {
     const validAlbum = createAlbumSchema.safeParse({
       slug: "kali-puja-2026-album",
-      title: { en: "Kali Puja 2026 Highlights", bn: "কালী পূজা ২০২৬" },
-      description: { en: "Divine celebration photos", bn: "উৎসবের ছবি" },
+      title: { en: "Kali Puja 2026 Highlights", bn: "" },
+      description: { en: "Divine celebration photos", bn: "" },
       cover: "media-cover-01",
       sortOrder: 1,
       active: true,
@@ -55,7 +55,7 @@ describe("Phase 3 — Gallery & Albums Domain", () => {
     const validItem = createAlbumItemSchema.safeParse({
       albumId: 1,
       mediaId: "media-photo-01",
-      caption: { en: "Aarti in sanctum", bn: "আরতি" },
+      caption: { en: "Aarti in sanctum", bn: "" },
       sortOrder: 1,
     });
     expect(validItem.success).toBe(true);

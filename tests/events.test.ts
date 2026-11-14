@@ -62,10 +62,10 @@ describe("Events & Festivals Domain & CRUD", () => {
         slug: "kali-puja-2026",
         date: "2026-11-10",
         kind: "festival",
-        title: { en: "Maha Kali Puja", bn: "মহা কালী পূজা" },
-        label: { en: "Deepavali Amavasya", bn: "দীপাবলি অমাবস্যা" },
+        title: { en: "Maha Kali Puja", bn: "" },
+        label: { en: "Deepavali Amavasya", bn: "" },
         time: "20:00",
-        description: { en: "Grand annual worship", bn: "বার্ষিক পূজা" },
+        description: { en: "Grand annual worship", bn: "" },
         active: true,
       });
       expect(valid.success).toBe(true);
@@ -157,7 +157,7 @@ describe("Events & Festivals Domain & CRUD", () => {
         db,
         {
           id: created.id,
-          title: { en: "Maha Kali Deepam", bn: "মহা কালী দীপম" },
+          title: { en: "Maha Kali Deepam", bn: "" },
           time: "19:00",
         },
         "admin-user-1"
@@ -288,8 +288,8 @@ describe("Events & Festivals Domain & CRUD", () => {
         slug: "amavasya-puja",
         date: "2026-11-15",
         kind: "special_puja",
-        title: { en: "Monthly Shyama Puja", bn: "মাসিক শ্যামা পূজা" },
-        label: { en: "Kartika Amavasya", bn: "কার্তিক অমাবস্যা" },
+        title: { en: "Monthly Shyama Puja", bn: "" },
+        label: { en: "Kartika Amavasya", bn: "" },
         description: { en: "Sacred night aarti and havan", bn: "" },
       });
 
@@ -297,8 +297,8 @@ describe("Events & Festivals Domain & CRUD", () => {
         slug: "saraswati-puja",
         date: "2027-02-10",
         kind: "festival",
-        title: { en: "Vasant Panchami", bn: "বসন্ত পঞ্চমী" },
-        label: { en: "Shukla Panchami", bn: "শুক্লা পঞ্চমী" },
+        title: { en: "Vasant Panchami", bn: "" },
+        label: { en: "Shukla Panchami", bn: "" },
         description: { en: "Students prayer for wisdom", bn: "" },
       });
 

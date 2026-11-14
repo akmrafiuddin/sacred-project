@@ -20,13 +20,13 @@ useHead({
 
 // Category options for the inquiry subject
 const subjectCategories = [
-  { label: "Daily Darshan & Temple Visit (দর্শন ও আগমন)", value: "Daily Darshan & Temple Visit" },
-  { label: "Puja & Sankalpa Service (পূজা ও সংকল্প সেবা)", value: "Puja & Sankalpa Service" },
-  { label: "Annadanam & Mahaprasad Seva (অন্নদান ও প্রসাদ সেবা)", value: "Annadanam & Mahaprasad Seva" },
-  { label: "Antim Sanskar / Shoshan Guidelines (মহাশ্মশান আচার)", value: "Antim Sanskar / Shoshan Guidelines" },
-  { label: "Donation & Trust Inquiries (দান ও ট্রাস্ট তথ্য)", value: "Donation & Trust Inquiries" },
-  { label: "General Devotee Message (সাধারণ বার্তা)", value: "General Devotee Message" },
-  { label: "Other / Custom Topic (অন্যান্য বিষয়)", value: "custom" },
+  { label: "Daily Darshan & Temple Visit", value: "Daily Darshan & Temple Visit" },
+  { label: "Puja & Sankalpa Service", value: "Puja & Sankalpa Service" },
+  { label: "Annadanam & Mahaprasad Seva", value: "Annadanam & Mahaprasad Seva" },
+  { label: "Antim Sanskar / Shoshan Guidelines", value: "Antim Sanskar / Shoshan Guidelines" },
+  { label: "Donation & Trust Inquiries", value: "Donation & Trust Inquiries" },
+  { label: "General Devotee Message", value: "General Devotee Message" },
+  { label: "Other / Custom Topic", value: "custom" },
 ];
 
 const defaultCategory = subjectCategories[0]?.value ?? "Daily Darshan & Temple Visit";
@@ -185,7 +185,6 @@ const handleReset = () => {
         </div>
 
         <h1 class="hero-title">
-          <span class="bengali-title">যোগাযোগ ও তথ্য কেন্দ্র</span>
           <span class="english-title">Contact Mandir Office</span>
         </h1>
 
@@ -228,13 +227,12 @@ const handleReset = () => {
                 </div>
                 <div>
                   <h2 class="card-title">Temple Location</h2>
-                  <span class="card-subtitle-bn">মন্দিরের পবিত্র অবস্থান</span>
                 </div>
               </div>
 
               <div class="card-body">
                 <div class="address-box">
-                  <strong class="temple-formal-name">শ্রীশ্রী গোলপাহাড় মহাশ্মশান কালী মন্দির</strong>
+                  <strong class="temple-formal-name">Sri Sri Golpahar Mohashoshan Kali Mandir</strong>
                   <p class="address-text">
                     Golpahar Moor, O.R. Nizam Road / Mehedibag Road,<br />
                     Chittagong-4000, Bangladesh.
@@ -276,7 +274,6 @@ const handleReset = () => {
                 </div>
                 <div>
                   <h2 class="card-title">Darshan &amp; Office Hours</h2>
-                  <span class="card-subtitle-bn">দর্শন ও অফিস সময়সূচি</span>
                 </div>
               </div>
 
@@ -329,7 +326,6 @@ const handleReset = () => {
                 </div>
                 <div>
                   <h2 class="card-title">Helpline &amp; Direct Channels</h2>
-                  <span class="card-subtitle-bn">সরাসরি যোগাযোগ মাধ্যম</span>
                 </div>
               </div>
 
@@ -419,7 +415,6 @@ const handleReset = () => {
                 </div>
 
                 <h2 class="success-title">Message Received</h2>
-                <p class="success-subtitle-bn">বার্তা সফলভাবে গৃহীত হয়েছে</p>
 
                 <p class="success-message">
                   {{ successMessage }}
@@ -444,7 +439,6 @@ const handleReset = () => {
               <div v-else>
                 <div class="form-header">
                   <h2 class="form-title">Send an Inquiry</h2>
-                  <span class="form-title-bn">পূজা, সেবা বা তথ্যের জন্য বার্তা পাঠান</span>
                   <p class="form-description">
                     Fill out the form below. Whether inquiring about Sankalpa puja, daily bhog,
                     or general information, our devotee desk will respond within 24–48 hours.
@@ -486,7 +480,7 @@ const handleReset = () => {
                   <!-- 1. Full Name -->
                   <div class="form-group" :class="{ 'has-error': fieldErrors.name }">
                     <label for="contact-name" class="form-label">
-                      <span>Full Name (আপনার নাম)</span>
+                      <span>Full Name</span>
                       <span class="required-mark" aria-hidden="true">*</span>
                     </label>
                     <input
@@ -509,7 +503,7 @@ const handleReset = () => {
                     <!-- Contact Phone -->
                     <div class="form-group" :class="{ 'has-error': fieldErrors.phone }">
                       <label for="contact-phone" class="form-label">
-                        <span>Mobile Phone (মোবাইল নম্বর)</span>
+                        <span>Mobile Phone</span>
                         <span class="optional-mark">(Optional)</span>
                       </label>
                       <input
@@ -529,7 +523,7 @@ const handleReset = () => {
                     <!-- Email Address -->
                     <div class="form-group" :class="{ 'has-error': fieldErrors.email }">
                       <label for="contact-email" class="form-label">
-                        <span>Email Address (ইমেইল ঠিকানা)</span>
+                        <span>Email Address</span>
                         <span class="optional-mark">(Optional)</span>
                       </label>
                       <input
@@ -549,7 +543,7 @@ const handleReset = () => {
                   <!-- 3. Subject / Category Selection -->
                   <div class="form-group" :class="{ 'has-error': fieldErrors.subject }">
                     <label for="contact-category" class="form-label">
-                      <span>Inquiry Topic / Category (বিষয়)</span>
+                      <span>Inquiry Topic / Category</span>
                       <span class="required-mark" aria-hidden="true">*</span>
                     </label>
                     <div class="select-wrapper">
@@ -582,7 +576,7 @@ const handleReset = () => {
                         v-model="form.customSubject"
                         type="text"
                         class="form-input custom-input"
-                        placeholder="Please specify your subject / আপনার বিষয় লিখুন"
+                        placeholder="Please specify your subject"
                         maxlength="200"
                         :disabled="isSubmitting"
                       />
@@ -596,7 +590,7 @@ const handleReset = () => {
                   <div class="form-group" :class="{ 'has-error': fieldErrors.message }">
                     <div class="label-with-counter">
                       <label for="contact-message" class="form-label">
-                        <span>Your Message (আপনার বার্তা)</span>
+                        <span>Your Message</span>
                         <span class="required-mark" aria-hidden="true">*</span>
                       </label>
                       <span class="char-counter" :class="{ 'counter-valid': isMessageValid }">
@@ -658,7 +652,7 @@ const handleReset = () => {
                       </span>
 
                       <span v-else class="btn-label-group">
-                        <span>Send Message / বার্তা পাঠান</span>
+                        <span>Send Message</span>
                         <svg viewBox="0 0 20 20" fill="currentColor" class="btn-arrow" aria-hidden="true">
                           <path
                             fill-rule="evenodd"

@@ -1,4 +1,4 @@
-import type { H3Event } from "h3";
+import { createError, type H3Event } from "h3";
 import type { D1Database } from "@cloudflare/workers-types";
 import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
 import * as schema from "./schema";

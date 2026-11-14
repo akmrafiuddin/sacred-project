@@ -100,7 +100,7 @@ const toggleTheme = (event?: MouseEvent) => {
 const currentLang = ref<string>("EN");
 const languages = [
   { code: "EN", name: "English", nativeName: "English" },
-  { code: "BN", name: "Bengali", nativeName: "বাংলা" },
+  { code: "BN", name: "Bengali", nativeName: "Bengali" },
 ];
 const isLangOpen = ref(false);
 

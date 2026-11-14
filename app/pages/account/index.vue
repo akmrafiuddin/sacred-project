@@ -6,10 +6,12 @@ useHead({
   title: "Devotee Portal - My Account",
 });
 
-const { isAuthenticated, isStaff, currentUser, role, logout } = useAuth();
+const { isAuthenticated, isPending, isStaff, currentUser, role, logout } = useAuth();
 
 // Route guard: /account requires login
 watchEffect(() => {
+  if (isPending.value) return;
+
   if (!isAuthenticated.value) {
     navigateTo("/admin/login");
   }

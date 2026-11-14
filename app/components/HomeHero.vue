@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useTempleData } from "~/composables/useTempleData";
 
 const props = withDefaults(
@@ -11,6 +12,115 @@ const props = withDefaults(
 );
 
 const { heroData } = useTempleData();
+
+// Static Hero Slider Data
+interface HeroSlide {
+  image: string;
+  title: string;
+  subtitle: string;
+  badge: string;
+}
+
+const heroSlides: HeroSlide[] = [
+  {
+    image: "/images/optimized/kali.jpg",
+    title: "Maa Bhavatarini Kali",
+    subtitle: "Presiding Sanctum Deity • Golpahar Mandir",
+    badge: "Primary Sanctum",
+  },
+  {
+    image: "/images/optimized/shiva.jpg",
+    title: "Lord Mahadeva Shiva",
+    subtitle: "Eternal Consciousness & Auspicious Lingam",
+    badge: "Holy Shrine",
+  },
+  {
+    image: "/images/optimized/krishna.jpg",
+    title: "Sri Sri Radha Krishna",
+    subtitle: "Divine Love & Eternal Bhakti",
+    badge: "Sanctum Altar",
+  },
+  {
+    image: "/images/optimized/ganesha.jpg",
+    title: "Lord Vighnaharta Ganesha",
+    subtitle: "Remover of Obstacles & Bestower of Wisdom",
+    badge: "Sacred Darshan",
+  },
+  {
+    image: "/images/optimized/lakshmi.jpg",
+    title: "Maa Mahalakshmi",
+    subtitle: "Goddess of Prosperity & Auspicious Grace",
+    badge: "Holy Shrine",
+  },
+];
+
+const currentSlideIndex = ref(0);
+const isPaused = ref(false);
+let autoPlayTimer: ReturnType<typeof setInterval> | null = null;
+
+const defaultSlide: HeroSlide = heroSlides[0]!;
+const currentSlide = computed<HeroSlide>(() => heroSlides[currentSlideIndex.value] ?? defaultSlide);
+
+const nextSlide = () => {
+  currentSlideIndex.value = (currentSlideIndex.value + 1) % heroSlides.length;
+};
+
+const prevSlide = () => {
+  currentSlideIndex.value = (currentSlideIndex.value - 1 + heroSlides.length) % heroSlides.length;
+};
+
+const goToSlide = (index: number) => {
+  if (index >= 0 && index < heroSlides.length) {
+    currentSlideIndex.value = index;
+  }
+};
+
+const pauseSlider = () => {
+  isPaused.value = true;
+};
+
+const resumeSlider = () => {
+  isPaused.value = false;
+};
+
+// Touch swipe support
+let touchStartX = 0;
+let touchEndX = 0;
+
+const handleTouchStart = (e: TouchEvent) => {
+  if (e.changedTouches[0]) {
+    touchStartX = e.changedTouches[0].screenX;
+  }
+};
+
+const handleTouchEnd = (e: TouchEvent) => {
+  if (e.changedTouches[0]) {
+    touchEndX = e.changedTouches[0].screenX;
+    const diff = touchStartX - touchEndX;
+    if (Math.abs(diff) > 40) {
+      if (diff > 0) {
+        nextSlide();
+      } else {
+        prevSlide();
+      }
+    }
+  }
+};
+
+onMounted(() => {
+  autoPlayTimer = setInterval(() => {
+    if (!isPaused.value) {
+      nextSlide();
+    }
+  }, 5000);
+});
+
+onBeforeUnmount(() => {
+  if (autoPlayTimer) {
+    clearInterval(autoPlayTimer);
+    autoPlayTimer = null;
+  }
+});
 
 const scrollToNext = () => {
   if (typeof window !== "undefined") {
@@ -26,7 +136,7 @@ const scrollToNext = () => {
 
 <template>
   <!-- ================================================================= -->
-  <!-- VARIANT 1: CLASSIC (Centered Single Column, Golden Accents)      -->
+  <!-- VARIANT 1: CLASSIC (Side-by-Side on Desktop, Vertical Responsive)  -->
   <!-- ================================================================= -->
   <section
     v-if="variant === 'classic'"
@@ -36,55 +146,153 @@ const scrollToNext = () => {
     <!-- Background Ambient Layers (Solid background, no gradients) -->
     <div class="hero-bg-layer" aria-hidden="true"></div>
 
-    <!-- Main Center Content -->
-    <div class="hero-content">
-      <!-- 1. SCHEDULE MESSAGE -->
-      <div class="schedule-card" role="status" aria-label="Temple Schedule Notice">
-        <div class="schedule-badge-wrap">
-          <span class="live-pulse" aria-hidden="true">
-            <span class="pulse-ring"></span>
-            <span class="pulse-dot"></span>
-          </span>
-          <span class="schedule-tag">NEXT</span>
+    <!-- Main Side-by-Side / Vertical Responsive Container -->
+    <div class="hero-split-container">
+      <!-- 1. LEFT: HERO TEXT CONTENT & ACTIONS -->
+      <div class="hero-content">
+        <!-- SCHEDULE MESSAGE -->
+        <div class="schedule-card" role="status" aria-label="Temple Schedule Notice">
+          <div class="schedule-badge-wrap">
+            <span class="live-pulse" aria-hidden="true">
+              <span class="pulse-ring"></span>
+              <span class="pulse-dot"></span>
+            </span>
+            <span class="schedule-tag">NEXT</span>
+          </div>
+          <div class="schedule-info">
+            <span class="schedule-title">{{ heroData.scheduleTitle }}</span>
+            <span class="schedule-sep">•</span>
+            <span class="schedule-time">{{ heroData.scheduleTime }}</span>
+          </div>
         </div>
-        <div class="schedule-info">
-          <span class="schedule-title">{{ heroData.scheduleTitle }}</span>
-          <span class="schedule-sep">•</span>
-          <span class="schedule-time">{{ heroData.scheduleTime }}</span>
+
+        <!-- MAIN HEADING -->
+        <h1 class="hero-title">
+          {{ heroData.titleLine1 }}
+          <span class="title-highlight">{{ heroData.titleHighlight }}</span>
+        </h1>
+
+        <!-- SUBTITLE -->
+        <p class="hero-paragraph">
+          {{ heroData.subtitle }}
+        </p>
+
+        <!-- ACTION BUTTONS -->
+        <div class="hero-actions">
+          <NuxtLink :to="heroData.firstCtaLink" class="btn btn-primary">
+            <span>{{ heroData.firstCtaText }}</span>
+            <svg class="btn-arrow" viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fill-rule="evenodd"
+                d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </NuxtLink>
+
+          <NuxtLink :to="heroData.secondCtaLink" class="btn btn-secondary">
+            <span>{{ heroData.secondCtaText }}</span>
+            <svg class="btn-icon-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+          </NuxtLink>
         </div>
       </div>
 
-      <!-- 2. MAIN HEADING -->
-      <h1 class="hero-title">
-        {{ heroData.titleLine1 }}
-        <span class="title-highlight">{{ heroData.titleHighlight }}</span>
-      </h1>
+      <!-- 2. RIGHT: HERO IMAGE SLIDER -->
+      <div
+        class="hero-slider-col"
+        @mouseenter="pauseSlider"
+        @mouseleave="resumeSlider"
+        @touchstart="handleTouchStart"
+        @touchend="handleTouchEnd"
+        aria-roledescription="carousel"
+        aria-label="Sacred Temple Darshan Slider"
+      >
+        <div class="hero-slider-card">
+          <!-- Top Badges Overlay -->
+          <div class="slider-top-bar">
+            <div class="slider-beacon-pill">
+              <span class="beacon-dot"></span>
+              <span class="beacon-label">LIVE DARSHAN ACTIVE</span>
+            </div>
+            <span class="slider-category-badge">{{ currentSlide.badge }}</span>
+          </div>
 
-      <!-- 3. SUBTITLE -->
-      <p class="hero-paragraph">
-        {{ heroData.subtitle }}
-      </p>
+          <!-- Slide Image Viewport with Smooth Transition -->
+          <div class="slider-image-viewport">
+            <transition name="hero-slide-fade" mode="out-in">
+              <img
+                :key="currentSlideIndex"
+                :src="currentSlide.image"
+                :alt="currentSlide.title"
+                class="slider-img"
+                loading="eager"
+              />
+            </transition>
+            <div class="slider-glow-layer" aria-hidden="true"></div>
+          </div>
 
-      <!-- 4. ACTION BUTTONS -->
-      <div class="hero-actions">
-        <NuxtLink :to="heroData.firstCtaLink" class="btn btn-primary">
-          <span>{{ heroData.firstCtaText }}</span>
-          <svg class="btn-arrow" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              fill-rule="evenodd"
-              d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
-              clip-rule="evenodd"
-            />
-          </svg>
-        </NuxtLink>
+          <!-- Bottom Caption & Controls Bar -->
+          <div class="slider-bottom-bar">
+            <div class="slider-caption-text">
+              <h3 class="slider-deity-title">{{ currentSlide.title }}</h3>
+              <p class="slider-deity-subtitle">{{ currentSlide.subtitle }}</p>
+            </div>
 
-        <NuxtLink :to="heroData.secondCtaLink" class="btn btn-secondary">
-          <span>{{ heroData.secondCtaText }}</span>
-          <svg class="btn-icon-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-            <circle cx="12" cy="10" r="3" />
-          </svg>
-        </NuxtLink>
+            <!-- Controls: Prev, Counter, Next -->
+            <div class="slider-controls-wrap">
+              <button
+                type="button"
+                class="slider-nav-btn prev"
+                aria-label="Previous slide"
+                @click="prevSlide"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fill-rule="evenodd"
+                    d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+
+              <span class="slider-counter" aria-live="polite">
+                {{ String(currentSlideIndex + 1).padStart(2, '0') }} / {{ String(heroSlides.length).padStart(2, '0') }}
+              </span>
+
+              <button
+                type="button"
+                class="slider-nav-btn next"
+                aria-label="Next slide"
+                @click="nextSlide"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fill-rule="evenodd"
+                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Pagination Indicator Dots -->
+          <div class="slider-dots" role="tablist" aria-label="Slider Pagination">
+            <button
+              v-for="(_, idx) in heroSlides"
+              :key="idx"
+              type="button"
+              class="slider-dot"
+              :class="{ 'is-active': idx === currentSlideIndex }"
+              :aria-label="`Go to slide ${idx + 1}`"
+              :aria-selected="idx === currentSlideIndex"
+              @click="goToSlide(idx)"
+            ></button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -205,12 +413,11 @@ const scrollToNext = () => {
 .hero-section {
   position: relative;
   width: 100%;
-  height: 100vh;
-  height: 100dvh;
-  min-height: 560px;
+  min-height: 100vh;
+  min-height: 100dvh;
   margin-top: calc(-1 * var(--nav-height, 72px));
-  padding-top: var(--nav-height, 72px);
-  padding-bottom: 2rem;
+  padding-top: calc(var(--nav-height, 72px) + 2rem);
+  padding-bottom: 3.5rem;
   padding-left: 1.5rem;
   padding-right: 1.5rem;
   display: flex;
@@ -221,11 +428,20 @@ const scrollToNext = () => {
   box-sizing: border-box;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 1024px) {
   .hero-section {
     height: auto;
     min-height: 100dvh;
-    padding-top: calc(var(--nav-height, 64px) + 1.75rem);
+    padding-top: calc(var(--nav-height, 64px) + 2rem);
+    padding-bottom: 4.5rem;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-section {
+    padding-top: calc(var(--nav-height, 64px) + 1.5rem);
     padding-bottom: 4rem;
     padding-left: 1rem;
     padding-right: 1rem;
@@ -241,17 +457,47 @@ const scrollToNext = () => {
   z-index: 1;
 }
 
+/* Split side-by-side container on desktop, vertical responsive */
+.hero-split-container {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  align-items: center;
+  gap: 3.5rem;
+}
+
+@media (max-width: 1024px) {
+  .hero-split-container {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+    max-width: 620px;
+  }
+}
+
 .hero-content {
   position: relative;
   z-index: 10;
   width: 100%;
-  max-width: 860px;
-  margin: 0 auto;
-  text-align: center;
+  max-width: 640px;
+  margin: 0;
+  text-align: left;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+}
+
+@media (max-width: 1024px) {
+  .hero-content {
+    max-width: 100%;
+    margin: 0 auto;
+    text-align: center;
+    align-items: center;
+  }
 }
 
 /* Schedule Notification Pill */
@@ -300,14 +546,15 @@ const scrollToNext = () => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #22c55e;
+  background: var(--accent-green, #4ADE80);
 }
 
 .pulse-ring {
   position: absolute;
   inset: -3px;
   border-radius: 50%;
-  background: rgba(34, 197, 94, 0.45);
+  background: var(--accent-green, #4ADE80);
+  opacity: 0.45;
   animation: pulsePing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
@@ -349,13 +596,14 @@ const scrollToNext = () => {
 
 /* Heading */
 .hero-title {
-  font-size: clamp(2.15rem, 4.4vw, 3.65rem);
+  font-size: clamp(2rem, 3.2vw, 3.4rem);
   font-weight: 800;
   line-height: 1.15;
   letter-spacing: -0.035em;
   color: var(--text-primary);
-  max-width: 840px;
+  max-width: 620px;
   margin-bottom: 1rem;
+  text-align: left;
 }
 
 .title-highlight {
@@ -364,19 +612,34 @@ const scrollToNext = () => {
 }
 
 .hero-paragraph {
-  font-size: clamp(0.95rem, 1.4vw, 1.125rem);
+  font-size: clamp(0.95rem, 1.3vw, 1.1rem);
   color: var(--text-secondary);
-  max-width: 640px;
+  max-width: 540px;
   line-height: 1.65;
   margin-bottom: 1.85rem;
+  text-align: left;
+}
+
+@media (max-width: 1024px) {
+  .hero-title,
+  .hero-paragraph {
+    text-align: center;
+    max-width: 100%;
+  }
 }
 
 .hero-actions {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 1rem;
   flex-wrap: wrap;
+}
+
+@media (max-width: 1024px) {
+  .hero-actions {
+    justify-content: center;
+  }
 }
 
 @media (max-width: 540px) {
@@ -388,6 +651,272 @@ const scrollToNext = () => {
 
   .hero-actions .btn {
     width: 100%;
+  }
+}
+
+/* ----------------------------------------------------
+   HERO SLIDER STYLES
+---------------------------------------------------- */
+.hero-slider-col {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  position: relative;
+  z-index: 10;
+}
+
+.hero-slider-card {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.hero-slider-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 20px 48px var(--accent-glow);
+}
+
+.slider-top-bar {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  right: 1rem;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.slider-beacon-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.75rem;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+
+.beacon-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-green, #4ADE80);
+  box-shadow: 0 0 8px var(--accent-green, #4ADE80);
+}
+
+.beacon-label {
+  font-size: 0.685rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #FFFFFF;
+  text-transform: uppercase;
+}
+
+.slider-category-badge {
+  font-size: 0.685rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.75rem;
+  background: rgba(224, 165, 38, 0.9);
+  color: #3F0A12;
+  border-radius: 9999px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.slider-image-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3.4;
+  overflow: hidden;
+  background-color: #1A0D00;
+}
+
+.slider-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+}
+
+.slider-glow-layer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.3) 0%,
+    transparent 35%,
+    transparent 60%,
+    rgba(0, 0, 0, 0.65) 100%
+  );
+  pointer-events: none;
+}
+
+.slider-bottom-bar {
+  padding: 1rem 1.25rem 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.slider-caption-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.slider-deity-title {
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-brand);
+  margin: 0 0 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:global(.dark) .slider-deity-title {
+  color: var(--accent);
+}
+
+.slider-deity-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slider-controls-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.slider-nav-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.slider-nav-btn:hover {
+  background: var(--accent);
+  color: #3F0A12;
+  border-color: var(--accent);
+  transform: scale(1.05);
+}
+
+.slider-nav-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.slider-counter {
+  font-family: monospace;
+  font-size: 0.785rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  min-width: 48px;
+  text-align: center;
+}
+
+.slider-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0 1.25rem 0.85rem;
+  background: var(--bg-card);
+}
+
+.slider-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--border-color);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.slider-dot.is-active {
+  width: 24px;
+  background: var(--color-brand);
+}
+
+:global(.dark) .slider-dot.is-active {
+  background: var(--accent);
+}
+
+/* Crossfade animation */
+.hero-slide-fade-enter-active,
+.hero-slide-fade-leave-active {
+  transition: opacity 0.4s ease;
+}
+
+.hero-slide-fade-enter-from,
+.hero-slide-fade-leave-to {
+  opacity: 0;
+}
+
+@media (max-width: 480px) {
+  .hero-slider-card {
+    border-radius: 16px;
+  }
+
+  .slider-image-viewport {
+    aspect-ratio: 4 / 3.2;
+  }
+
+  .slider-top-bar {
+    top: 0.75rem;
+    left: 0.75rem;
+    right: 0.75rem;
+  }
+
+  .beacon-label,
+  .slider-category-badge {
+    font-size: 0.625rem;
+    padding: 0.25rem 0.6rem;
+  }
+
+  .slider-deity-title {
+    font-size: 1.05rem;
+  }
+
+  .slider-bottom-bar {
+    padding: 0.85rem 1rem 0.65rem;
+  }
+}
+
+@media (max-width: 1024px), (max-height: 760px) {
+  .hero-scroller {
+    display: none;
   }
 }
 
@@ -755,8 +1284,8 @@ html[data-theme="light"] .kesari-highlight {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background-color: #22c55e;
-  box-shadow: 0 0 8px #22c55e;
+  background-color: var(--accent-green, #4ADE80);
+  box-shadow: 0 0 8px var(--accent-green, #4ADE80);
 }
 
 .shrine-title {

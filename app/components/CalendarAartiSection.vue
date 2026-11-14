@@ -906,8 +906,8 @@ function retryFetch() {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #22c55e; /* Solid green */
-  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+  background-color: var(--accent-green, #4ADE80); /* Live status */
+  box-shadow: 0 0 6px var(--accent-green, rgba(74, 222, 128, 0.6));
 }
 
 /* Special Events Banner */

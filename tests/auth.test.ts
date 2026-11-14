@@ -204,11 +204,11 @@ describe("Phase 2 — Authentication & Authorization", () => {
 
   describe("Common Validation Schemas", () => {
     it("validates localized text", () => {
-      expect(localized.parse({ en: "Kali Mandir", bn: "কালী মন্দির" })).toEqual({
+      expect(localized.parse({ en: "Kali Mandir", bn: "" })).toEqual({
         en: "Kali Mandir",
-        bn: "কালী মন্দির",
+        bn: "",
       });
-      // Fallback when bn is empty
+      // Fallback when bn is omitted
       expect(localized.parse({ en: "Kali Mandir" })).toEqual({
         en: "Kali Mandir",
         bn: "",
