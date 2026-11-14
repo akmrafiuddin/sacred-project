@@ -57,18 +57,11 @@ withDefaults(
     font-size: 1.0625rem; /* 17px on desktop */
   }
 
-  /* English alignment: justified with hyphenation on desktop */
-  .about-article:lang(en) {
+  /* Article paragraph alignment */
+  .about-article {
     text-align: justify;
     hyphens: auto;
   }
-}
-
-/* Bengali alignment: always left-aligned with taller line-height */
-.about-article:lang(bn) {
-  text-align: left !important;
-  hyphens: none !important;
-  line-height: 1.9;
 }
 
 .about-article p {
@@ -76,11 +69,10 @@ withDefaults(
 }
 
 /* ----------------------------------------------------
-   DROP CAP (Section 6.3)
-   First paragraph only, English only, display serif italic.
-   Disabled for Bengali to prevent conjunct clipping.
+   DROP CAP
+   First paragraph only, display serif italic.
 ---------------------------------------------------- */
-.about-article:lang(en) > p:first-of-type::first-letter {
+.about-article > p:first-of-type::first-letter {
   float: left;
   font-family: var(--font-serif, "Cinzel", "Playfair Display", Georgia, serif);
   font-style: italic;
@@ -90,16 +82,6 @@ withDefaults(
   margin-right: 0.06em;
   color: var(--accent, #E0A526);
   font-weight: 600;
-}
-
-.about-article:lang(bn) > p:first-of-type::first-letter {
-  float: none;
-  font-family: inherit;
-  font-style: normal;
-  font-size: inherit;
-  line-height: inherit;
-  padding: 0;
-  color: inherit;
 }
 
 /* Headings inside the article */
@@ -122,13 +104,6 @@ withDefaults(
   color: var(--heading-color, var(--text-primary, #6E0516));
   line-height: 1.35;
   text-align: left;
-}
-
-/* Bengali headings */
-.about-article:lang(bn) h2,
-.about-article:lang(bn) h3 {
-  font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
-  line-height: 1.4;
 }
 
 /* ----------------------------------------------------

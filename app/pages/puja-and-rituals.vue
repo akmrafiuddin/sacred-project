@@ -265,7 +265,7 @@ useHead({
             <div class="puja-card-header">
               <span class="puja-number">{{ String(idx + 1).padStart(2, '0') }}</span>
               <div class="puja-pricing">
-                <span class="puja-price">৳{{ puja.priceBdt.toLocaleString() }}</span>
+                <span class="puja-price">BDT {{ puja.priceBdt.toLocaleString() }}</span>
                 <span v-if="puja.duration" class="puja-duration">{{ puja.duration }}</span>
               </div>
             </div>

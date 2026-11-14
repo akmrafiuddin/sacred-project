@@ -25,7 +25,7 @@ describe("Puja, Festivals, and Notices Pages Data Mapping", () => {
         {
           id: 1,
           slug: "nitya-puja",
-          name: { en: "Nitya Puja", bn: "নিত্য পূজা" },
+          name: { en: "Nitya Puja", bn: "" },
           description: { en: "Daily worship", bn: "" },
           offered: { en: "Flowers & Prasad", bn: "" },
           priceBdt: 501,

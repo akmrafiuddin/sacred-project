@@ -2335,14 +2335,12 @@ const executeDeleteEvent = async () => {
                   </div>
                 </div>
 
-                <!-- Ritual Details (Bilingual) -->
+                <!-- Ritual Details -->
                 <div class="details-col">
                   <div class="title-row">
                     <h3 class="ritual-title-en">{{ item.title.en }}</h3>
-                    <span v-if="item.title.bn" class="ritual-title-bn">{{ item.title.bn }}</span>
                   </div>
-                  <p class="ritual-desc-en">{{ item.description.en || 'No English description provided.' }}</p>
-                  <p v-if="item.description.bn" class="ritual-desc-bn">{{ item.description.bn }}</p>
+                  <p class="ritual-desc-en">{{ item.description.en || 'No description provided.' }}</p>
                 </div>
 
                 <!-- Active Toggle -->
@@ -2507,7 +2505,7 @@ const executeDeleteEvent = async () => {
                 <!-- Price & Duration Meta Pill -->
                 <div class="puja-meta-badge-col">
                   <div class="puja-price-badge">
-                    <span class="currency-sym">৳</span>
+                    <span class="currency-sym">BDT</span>
                     <span class="price-val">{{ item.priceBdt.toLocaleString() }}</span>
                   </div>
                   <div class="puja-duration-pill">
@@ -2519,18 +2517,15 @@ const executeDeleteEvent = async () => {
                 <div class="puja-details-col">
                   <div class="title-row">
                     <h3 class="puja-title-en">{{ item.name.en }}</h3>
-                    <span v-if="item.name.bn" class="puja-title-bn">{{ item.name.bn }}</span>
                     <span class="puja-slug-pill">/{{ item.slug }}</span>
                   </div>
                   <p class="puja-desc-en">{{ item.description.en }}</p>
-                  <p v-if="item.description.bn" class="puja-desc-bn">{{ item.description.bn }}</p>
 
                   <!-- Samagri / Offered Items Box -->
-                  <div v-if="item.offered?.en || item.offered?.bn" class="puja-offered-box">
+                  <div v-if="item.offered?.en" class="puja-offered-box">
                     <div class="offered-content">
                       <span class="offered-label">Included Samagri:</span>
                       <span class="offered-text">{{ item.offered?.en }}</span>
-                      <span v-if="item.offered?.bn" class="offered-text-bn">({{ item.offered?.bn }})</span>
                     </div>
                   </div>
                 </div>
@@ -2738,14 +2733,12 @@ const executeDeleteEvent = async () => {
                 <div class="event-details-col">
                   <div class="title-row">
                     <h3 class="event-title-en">{{ item.title.en }}</h3>
-                    <span v-if="item.title.bn" class="event-title-bn">{{ item.title.bn }}</span>
-                    <span v-if="item.label?.en || item.label?.bn" class="event-tithi-chip" :title="item.label.bn || item.label.en">
-                      {{ item.label.en || item.label.bn }}
+                    <span v-if="item.label?.en" class="event-tithi-chip" :title="item.label.en">
+                      {{ item.label.en }}
                     </span>
                     <span class="event-slug-pill">/{{ item.slug }}</span>
                   </div>
                   <p class="event-desc-en">{{ item.description.en }}</p>
-                  <p v-if="item.description.bn" class="event-desc-bn">{{ item.description.bn }}</p>
                 </div>
 
                 <!-- Active Toggle Switch Col -->
@@ -2918,15 +2911,12 @@ const executeDeleteEvent = async () => {
                 <div class="deity-details-col">
                   <div class="title-row">
                     <h3 class="deity-title-en">{{ item.name.en }}</h3>
-                    <span v-if="item.name.bn" class="deity-title-bn">{{ item.name.bn }}</span>
                     <span class="deity-slug-pill">/{{ item.slug }}</span>
                   </div>
-                  <div v-if="item.subtitle?.en || item.subtitle?.bn" class="deity-sub-row">
+                  <div v-if="item.subtitle?.en" class="deity-sub-row">
                     <span class="deity-subtitle-text">{{ item.subtitle?.en }}</span>
-                    <span v-if="item.subtitle?.bn" class="deity-subtitle-bn">({{ item.subtitle?.bn }})</span>
                   </div>
                   <p class="deity-desc-en">{{ item.description.en }}</p>
-                  <p v-if="item.description.bn" class="deity-desc-bn">{{ item.description.bn }}</p>
                 </div>
 
                 <!-- Active Toggle -->
@@ -3091,11 +3081,9 @@ const executeDeleteEvent = async () => {
                 <div class="notice-details-col">
                   <div class="title-row">
                     <h3 class="notice-title-en">{{ item.title.en }}</h3>
-                    <span v-if="item.title.bn" class="notice-title-bn">{{ item.title.bn }}</span>
                     <span class="notice-slug-pill">/{{ item.slug }}</span>
                   </div>
                   <p class="notice-body-en">{{ item.body.en }}</p>
-                  <p v-if="item.body.bn" class="notice-body-bn">{{ item.body.bn }}</p>
                 </div>
 
                 <!-- Toggles Col (Pin & Active) -->
@@ -3269,7 +3257,7 @@ const executeDeleteEvent = async () => {
                 <div class="booking-puja-col">
                   <div class="puja-booked-badge">
                     <span class="puja-booked-name">{{ item.pujaName?.en || 'Puja / Sacred Sankalpa' }}</span>
-                    <span v-if="item.pujaPrice" class="puja-booked-price">৳{{ item.pujaPrice }}</span>
+                    <span v-if="item.pujaPrice" class="puja-booked-price">BDT {{ item.pujaPrice }}</span>
                   </div>
                   <div class="preferred-date-chip">
                     <span>Preferred Date:</span>
@@ -3747,7 +3735,7 @@ const executeDeleteEvent = async () => {
                     class="font-preview-heading"
                     :style="{ fontFamily: siteSettingsData.typography.headingFont }"
                   >
-                    জয় মা তারা জয় মা ভবতারিণী · Divine Sanctuary
+                    Maa Bhavatarini Kali Mandir · Divine Sanctuary
                   </h3>
                   <p
                     class="font-preview-body"
@@ -4278,32 +4266,10 @@ const executeDeleteEvent = async () => {
               </div>
             </div>
 
-            <!-- 2. BILINGUAL CONTENT TABS -->
-            <div class="lang-tabs-nav">
-              <button
-                type="button"
-                class="lang-tab-pill"
-                :class="{ 'lang-tab-active': activeLangTab === 'en' }"
-                @click="activeLangTab = 'en'"
-              >
-                <span>English</span>
-                <span class="lang-req-dot" title="Required">*</span>
-              </button>
-              <button
-                type="button"
-                class="lang-tab-pill"
-                :class="{ 'lang-tab-active': activeLangTab === 'bn' }"
-                @click="activeLangTab = 'bn'"
-              >
-                <span>বাংলা (Bengali)</span>
-                <span class="lang-opt-badge">Optional</span>
-              </button>
-            </div>
-
-            <!-- English Fields -->
-            <div v-show="activeLangTab === 'en'" class="lang-fields-box">
+            <!-- 2. CONTENT FIELDS -->
+            <div class="lang-fields-box">
               <div class="form-group">
-                <label class="form-label">Ritual Title (English) <span class="required-star">*</span></label>
+                <label class="form-label">Ritual Title <span class="required-star">*</span></label>
                 <input
                   type="text"
                   v-model="itemForm.titleEn"
@@ -4314,35 +4280,12 @@ const executeDeleteEvent = async () => {
               </div>
 
               <div class="form-group">
-                <label class="form-label">Description (English)</label>
+                <label class="form-label">Description</label>
                 <textarea
                   v-model="itemForm.descEn"
                   class="form-textarea"
                   rows="3"
                   placeholder="Brief description of the ritual offering, bells, or darshan..."
-                ></textarea>
-              </div>
-            </div>
-
-            <!-- Bengali Fields -->
-            <div v-show="activeLangTab === 'bn'" class="lang-fields-box">
-              <div class="form-group">
-                <label class="form-label">Ritual Title (বাংলা)</label>
-                <input
-                  type="text"
-                  v-model="itemForm.titleBn"
-                  class="form-input"
-                  placeholder="যেমন: মঙ্গলারতি, ভোগ আরতি, সন্ধ্যারতি"
-                />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">Description (বাংলা)</label>
-                <textarea
-                  v-model="itemForm.descBn"
-                  class="form-textarea"
-                  rows="3"
-                  placeholder="পূজা ও আরতির বর্ণনা..."
                 ></textarea>
               </div>
             </div>
@@ -4455,7 +4398,7 @@ const executeDeleteEvent = async () => {
                   Dakshina / Price (BDT) <span class="required-star">*</span>
                 </label>
                 <div class="input-with-prefix">
-                  <span class="input-prefix">৳</span>
+                  <span class="input-prefix">BDT</span>
                   <input
                     type="number"
                     v-model.number="pujaForm.priceBdt"
@@ -4474,7 +4417,7 @@ const executeDeleteEvent = async () => {
                     class="preset-chip"
                     @click="pujaForm.priceBdt = preset; pujaFormErrors.priceBdt = ''"
                   >
-                    ৳{{ preset }}
+                    BDT {{ preset }}
                   </button>
                 </div>
               </div>
@@ -4503,33 +4446,11 @@ const executeDeleteEvent = async () => {
               </div>
             </div>
 
-            <!-- 2. BILINGUAL CONTENT TABS -->
-            <div class="lang-tab-bar">
-              <button
-                type="button"
-                class="lang-tab-btn"
-                :class="{ 'lang-tab-active': activePujaLangTab === 'en' }"
-                @click="activePujaLangTab = 'en'"
-              >
-                <span>English Content</span>
-                <span class="lang-req-dot">• Required</span>
-              </button>
-              <button
-                type="button"
-                class="lang-tab-btn"
-                :class="{ 'lang-tab-active': activePujaLangTab === 'bn' }"
-                @click="activePujaLangTab = 'bn'"
-              >
-                <span>বাংলা বিবরণ</span>
-                <span class="lang-opt-badge">(ঐচ্ছিক)</span>
-              </button>
-            </div>
-
-            <!-- English Fields -->
-            <div v-show="activePujaLangTab === 'en'" class="lang-fields-box">
+            <!-- 2. CONTENT FIELDS -->
+            <div class="lang-fields-box">
               <div class="form-group">
                 <label class="form-label">
-                  Puja Name (English) <span class="required-star">*</span>
+                  Puja Name <span class="required-star">*</span>
                 </label>
                 <input
                   type="text"
@@ -4543,7 +4464,7 @@ const executeDeleteEvent = async () => {
 
               <div class="form-group">
                 <label class="form-label">
-                  Description & Spiritual Significance (English) <span class="required-star">*</span>
+                  Description & Spiritual Significance <span class="required-star">*</span>
                 </label>
                 <textarea
                   v-model="pujaForm.descEn"
@@ -4555,7 +4476,7 @@ const executeDeleteEvent = async () => {
               </div>
 
               <div class="form-group">
-                <label class="form-label">Included Samagri / Offerings (English)</label>
+                <label class="form-label">Included Samagri / Offerings</label>
                 <input
                   type="text"
                   v-model="pujaForm.offeredEn"
@@ -4563,39 +4484,6 @@ const executeDeleteEvent = async () => {
                   placeholder="e.g. Flowers, bel patra, incense, bhog and prasad"
                 />
                 <span class="hint-text">List of items and sacred offerings provided by the temple for this puja</span>
-              </div>
-            </div>
-
-            <!-- Bengali Fields -->
-            <div v-show="activePujaLangTab === 'bn'" class="lang-fields-box">
-              <div class="form-group">
-                <label class="form-label">পূজার নাম (বাংলা)</label>
-                <input
-                  type="text"
-                  v-model="pujaForm.nameBn"
-                  class="form-input"
-                  placeholder="যেমন: নিত্য পূজা, সত্যনারায়ণ পূজা, রুদ্রাভিষেক"
-                />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">পূজার মাহাত্ম্য ও বিবরণ (বাংলা)</label>
-                <textarea
-                  v-model="pujaForm.descBn"
-                  class="form-textarea"
-                  rows="3"
-                  placeholder="ভক্তের নাম ও গোত্রে সংকল্পপূর্বক মন্দিরের পুরোহিত দ্বারা অর্পিত..."
-                ></textarea>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">প্রদত্ত সামগ্রী ও উপাচার (বাংলা)</label>
-                <input
-                  type="text"
-                  v-model="pujaForm.offeredBn"
-                  class="form-input"
-                  placeholder="যেমন: ফুল, বেলপাতা, চন্দন, ভোগ ও গৃহের প্রসাদ"
-                />
               </div>
             </div>
 
@@ -4655,7 +4543,7 @@ const executeDeleteEvent = async () => {
         </div>
         <div class="modal-body">
           <p class="confirm-text">
-            Are you sure you want to delete <strong>{{ deleteConfirmPuja.name.en }}</strong> (৳{{ deleteConfirmPuja.priceBdt }})?
+            Are you sure you want to delete <strong>{{ deleteConfirmPuja.name.en }}</strong> (BDT {{ deleteConfirmPuja.priceBdt }})?
           </p>
           <p class="confirm-warning">
             This will permanently remove this puja from public listings. Any existing booking records will be retained with their details intact.
@@ -4734,33 +4622,11 @@ const executeDeleteEvent = async () => {
               </div>
             </div>
 
-            <!-- 2. BILINGUAL CONTENT TABS -->
-            <div class="lang-tab-bar">
-              <button
-                type="button"
-                class="lang-tab-btn"
-                :class="{ 'lang-tab-active': activeDeityLangTab === 'en' }"
-                @click="activeDeityLangTab = 'en'"
-              >
-                <span>English Content</span>
-                <span class="lang-req-dot">• Required</span>
-              </button>
-              <button
-                type="button"
-                class="lang-tab-btn"
-                :class="{ 'lang-tab-active': activeDeityLangTab === 'bn' }"
-                @click="activeDeityLangTab = 'bn'"
-              >
-                <span>বাংলা বিবরণ</span>
-                <span class="lang-opt-badge">(ঐচ্ছিক)</span>
-              </button>
-            </div>
-
-            <!-- English Fields -->
-            <div v-show="activeDeityLangTab === 'en'" class="lang-fields-box">
+            <!-- 2. CONTENT FIELDS -->
+            <div class="lang-fields-box">
               <div class="form-group">
                 <label class="form-label">
-                  Deity Name (English) <span class="required-star">*</span>
+                  Deity Name <span class="required-star">*</span>
                 </label>
                 <input
                   type="text"
@@ -4773,7 +4639,7 @@ const executeDeleteEvent = async () => {
               </div>
 
               <div class="form-group">
-                <label class="form-label">Subtitle / Divine Epithet (English)</label>
+                <label class="form-label">Subtitle / Divine Epithet</label>
                 <input
                   type="text"
                   v-model="deityForm.subtitleEn"
@@ -4784,7 +4650,7 @@ const executeDeleteEvent = async () => {
 
               <div class="form-group">
                 <label class="form-label">
-                  Sacred Significance & History (English) <span class="required-star">*</span>
+                  Sacred Significance & History <span class="required-star">*</span>
                 </label>
                 <textarea
                   v-model="deityForm.descEn"
@@ -4793,39 +4659,6 @@ const executeDeleteEvent = async () => {
                   placeholder="Embodiment of Shakti, wisdom, and eternal protection..."
                 ></textarea>
                 <span v-if="deityFormErrors.descEn" class="error-msg">{{ deityFormErrors.descEn }}</span>
-              </div>
-            </div>
-
-            <!-- Bengali Fields -->
-            <div v-show="activeDeityLangTab === 'bn'" class="lang-fields-box">
-              <div class="form-group">
-                <label class="form-label">বিগ্রহের নাম (বাংলা)</label>
-                <input
-                  type="text"
-                  v-model="deityForm.nameBn"
-                  class="form-input"
-                  placeholder="যেমন: মা কালী, শ্রী মহাদেব শিব, রাধাকৃষ্ণ"
-                />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">মহিমা ও উপাধি (বাংলা)</label>
-                <input
-                  type="text"
-                  v-model="deityForm.subtitleBn"
-                  class="form-input"
-                  placeholder="যেমন: গোলপাহাড় মহাশ্মশানের প্রধান অধিষ্ঠাত্রী দেবী"
-                />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">বিগ্রহের মাহাত্ম্য ও ইতিহাস (বাংলা)</label>
-                <textarea
-                  v-model="deityForm.descBn"
-                  class="form-textarea"
-                  rows="4"
-                  placeholder="শক্তিরূপা ও করুণাময়ী জগতের পালনকর্ত্রী..."
-                ></textarea>
               </div>
             </div>
 
@@ -4950,33 +4783,11 @@ const executeDeleteEvent = async () => {
               </div>
             </div>
 
-            <!-- 2. BILINGUAL CONTENT TABS -->
-            <div class="lang-tab-bar">
-              <button
-                type="button"
-                class="lang-tab-btn"
-                :class="{ 'lang-tab-active': activeNoticeLangTab === 'en' }"
-                @click="activeNoticeLangTab = 'en'"
-              >
-                <span>English Content</span>
-                <span class="lang-req-dot">• Required</span>
-              </button>
-              <button
-                type="button"
-                class="lang-tab-btn"
-                :class="{ 'lang-tab-active': activeNoticeLangTab === 'bn' }"
-                @click="activeNoticeLangTab = 'bn'"
-              >
-                <span>বাংলা নোটিশ</span>
-                <span class="lang-opt-badge">(ঐচ্ছিক)</span>
-              </button>
-            </div>
-
-            <!-- English Fields -->
-            <div v-show="activeNoticeLangTab === 'en'" class="lang-fields-box">
+            <!-- 2. CONTENT FIELDS -->
+            <div class="lang-fields-box">
               <div class="form-group">
                 <label class="form-label">
-                  Notice Title (English) <span class="required-star">*</span>
+                  Notice Title <span class="required-star">*</span>
                 </label>
                 <input
                   type="text"
@@ -4990,7 +4801,7 @@ const executeDeleteEvent = async () => {
 
               <div class="form-group">
                 <label class="form-label">
-                  Notice Body / Text (English) <span class="required-star">*</span>
+                  Notice Body / Text <span class="required-star">*</span>
                 </label>
                 <textarea
                   v-model="noticeForm.bodyEn"
@@ -4999,29 +4810,6 @@ const executeDeleteEvent = async () => {
                   placeholder="Enter official circular details..."
                 ></textarea>
                 <span v-if="noticeFormErrors.bodyEn" class="error-msg">{{ noticeFormErrors.bodyEn }}</span>
-              </div>
-            </div>
-
-            <!-- Bengali Fields -->
-            <div v-show="activeNoticeLangTab === 'bn'" class="lang-fields-box">
-              <div class="form-group">
-                <label class="form-label">নোটিশের শিরোনাম (বাংলা)</label>
-                <input
-                  type="text"
-                  v-model="noticeForm.titleBn"
-                  class="form-input"
-                  placeholder="যেমন: শ্যামাপূজা উপলক্ষে ভক্তবৃন্দের জন্য বিশেষ বিজ্ঞপ্তি"
-                />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">নোটিশের মূল বিষয়বস্তু (বাংলা)</label>
-                <textarea
-                  v-model="noticeForm.bodyBn"
-                  class="form-textarea"
-                  rows="4"
-                  placeholder="বিজ্ঞপ্তির বিস্তারিত বিবরণ..."
-                ></textarea>
               </div>
             </div>
 
@@ -5312,32 +5100,11 @@ const executeDeleteEvent = async () => {
 
         <form @submit.prevent="saveEvent" class="modal-form">
           <div class="modal-body">
-            <!-- Language Selector Tabs -->
-            <div class="lang-tabs-bar">
-              <button
-                type="button"
-                class="lang-tab-btn"
-                :class="{ 'lang-tab-active': eventActiveTab === 'en' }"
-                @click="eventActiveTab = 'en'"
-              >
-                <span>English Details</span>
-                <span v-if="!eventForm.title.en" class="req-dot">*</span>
-              </button>
-              <button
-                type="button"
-                class="lang-tab-btn"
-                :class="{ 'lang-tab-active': eventActiveTab === 'bn' }"
-                @click="eventActiveTab = 'bn'"
-              >
-                <span>বাংলা বিবরণ (Bengali)</span>
-              </button>
-            </div>
-
-            <!-- TAB 1: ENGLISH DETAILS -->
-            <div v-show="eventActiveTab === 'en'" class="lang-tab-content">
+            <!-- EVENT DETAILS -->
+            <div class="lang-tab-content">
               <div class="form-group">
                 <label class="form-label">
-                  Festival / Event Title (English) <span class="required-star">*</span>
+                  Festival / Event Title <span class="required-star">*</span>
                 </label>
                 <input
                   type="text"
@@ -5351,7 +5118,7 @@ const executeDeleteEvent = async () => {
 
               <div class="form-group">
                 <label class="form-label">
-                  Lunar Tithi / Bengali Date (English) <span class="optional-badge">Optional</span>
+                  Lunar Tithi / Traditional Date <span class="optional-badge">Optional</span>
                 </label>
                 <input
                   type="text"
@@ -5364,7 +5131,7 @@ const executeDeleteEvent = async () => {
 
               <div class="form-group">
                 <label class="form-label">
-                  Event Overview & Schedule (English) <span class="required-star">*</span>
+                  Event Overview & Schedule <span class="required-star">*</span>
                 </label>
                 <textarea
                   v-model="eventForm.description.en"
@@ -5376,46 +5143,7 @@ const executeDeleteEvent = async () => {
               </div>
             </div>
 
-            <!-- TAB 2: BENGALI DETAILS -->
-            <div v-show="eventActiveTab === 'bn'" class="lang-tab-content">
-              <div class="form-group">
-                <label class="form-label">
-                  উৎসব / অনুষ্ঠানের শিরোনাম (বাংলা)
-                </label>
-                <input
-                  type="text"
-                  v-model="eventForm.title.bn"
-                  class="form-input font-bengali"
-                  placeholder="যেমন: শ্রীশ্রী শ্যামা পূজা ও দীপাবলি মহোৎসব"
-                />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">
-                  তিথি / পঞ্জিকা অনুসারে তারিখ (বাংলা) <span class="optional-badge">ঐচ্ছিক</span>
-                </label>
-                <input
-                  type="text"
-                  v-model="eventForm.label.bn"
-                  class="form-input font-bengali"
-                  placeholder="যেমন: কার্তিক অমাবস্যা তিথি বা শুভ দীপাবলি"
-                />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">
-                  উৎসবের বিস্তারিত বিবরণ ও নির্ঘণ্ট (বাংলা)
-                </label>
-                <textarea
-                  v-model="eventForm.description.bn"
-                  class="form-textarea font-bengali"
-                  rows="4"
-                  placeholder="পূজার সময়সূচী, পুষ্পাঞ্জলি, হোমযজ্ঞ ও মহাপ্রসাদ বিতরণের বিবরণ..."
-                ></textarea>
-              </div>
-            </div>
-
-            <!-- COMMON SETTINGS (Both Languages) -->
+            <!-- Configuration & Scheduling -->
             <div class="common-section-divider">
               <span>Festival Configuration & Scheduling</span>
             </div>
@@ -5427,10 +5155,10 @@ const executeDeleteEvent = async () => {
                   Event Category <span class="required-star">*</span>
                 </label>
                 <select v-model="eventForm.kind" class="form-input">
-                  <option value="festival">Festival (উৎসব)</option>
-                  <option value="special_puja">Special Puja (বিশেষ পূজা)</option>
-                  <option value="seva">Seva / Offering (সেবা)</option>
-                  <option value="other">Other (অন্যান্য)</option>
+                  <option value="festival">Festival</option>
+                  <option value="special_puja">Special Puja</option>
+                  <option value="seva">Seva / Offering</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
 

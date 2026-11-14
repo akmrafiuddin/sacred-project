@@ -80,15 +80,6 @@ defineProps<{
   max-width: 100%;
 }
 
-/* Bengali conjuncts require taller line-height and theme font */
-.hero-title.is-bn,
-.about-hero-band:lang(bn) .hero-title {
-  font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
-  line-height: 1.35;
-  letter-spacing: 0;
-  font-weight: 600;
-}
-
 .hero-subtitle {
   margin: 0.75rem 0 0 0; /* 12px margin-top */
   font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);

@@ -60,9 +60,9 @@ describe("Deities Domain & CRUD", () => {
     it("validates deity input with Zod", () => {
       const valid = createDeitySchema.safeParse({
         slug: "maa-kali",
-        name: { en: "Maa Kali", bn: "মা কালী" },
-        subtitle: { en: "The Presiding Divine Mother", bn: "প্রধান অধিষ্ঠাত্রী দেবী" },
-        description: { en: "Embodiment of Shakti and compassion", bn: "শক্তিরূপা ও করুণাময়ী" },
+        name: { en: "Maa Kali", bn: "" },
+        subtitle: { en: "The Presiding Divine Mother", bn: "" },
+        description: { en: "Embodiment of Shakti and compassion", bn: "" },
         imageId: "media-kali-01",
         sortOrder: 1,
         active: true,
@@ -99,9 +99,9 @@ describe("Deities Domain & CRUD", () => {
         db,
         {
           slug: "maa-kali",
-          name: { en: "Maa Kali", bn: "মা কালী" },
-          subtitle: { en: "Presiding Deity", bn: "অধিষ্ঠাত্রী দেবী" },
-          description: { en: "Mother of the Universe", bn: "জগন্মাতা" },
+          name: { en: "Maa Kali", bn: "" },
+          subtitle: { en: "Presiding Deity", bn: "" },
+          description: { en: "Mother of the Universe", bn: "" },
           imageId: "img-kali",
           sortOrder: 1,
           active: true,
@@ -112,7 +112,7 @@ describe("Deities Domain & CRUD", () => {
       expect(created.id).toBeDefined();
       expect(created.slug).toBe("maa-kali");
       expect(created.name.en).toBe("Maa Kali");
-      expect(created.subtitle?.bn).toBe("অধিষ্ঠাত্রী দেবী");
+      expect(created.subtitle?.en).toBe("Presiding Deity");
 
       // Verify audit log
       const audits = sqlite.query("SELECT * FROM audit_logs WHERE entity = 'deities'").all();
@@ -154,7 +154,7 @@ describe("Deities Domain & CRUD", () => {
         db,
         {
           id: created.id,
-          name: { en: "Shree Ganesha", bn: "শ্রী গণেশ" },
+          name: { en: "Shree Ganesha", bn: "" },
           sortOrder: 5,
         },
         "admin-user-1"
@@ -219,14 +219,14 @@ describe("Deities Domain & CRUD", () => {
     it("searches across name, subtitle, description, and slug", async () => {
       await DeitiesService.create(db, {
         slug: "radha-krishna",
-        name: { en: "Radha Krishna", bn: "রাধা কৃষ্ণ" },
-        subtitle: { en: "Divine Love", bn: "পরম প্রেম" },
+        name: { en: "Radha Krishna", bn: "" },
+        subtitle: { en: "Divine Love", bn: "" },
         description: { en: "Vrindavan pastimes", bn: "" },
       });
       await DeitiesService.create(db, {
         slug: "durga-mata",
-        name: { en: "Maa Durga", bn: "মা দুর্গা" },
-        subtitle: { en: "Mahishasuramardini", bn: "মহিষাসুরমর্দিনী" },
+        name: { en: "Maa Durga", bn: "" },
+        subtitle: { en: "Mahishasuramardini", bn: "" },
         description: { en: "Ten-armed goddess of triumph", bn: "" },
       });
 

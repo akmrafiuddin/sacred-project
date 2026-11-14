@@ -137,7 +137,7 @@ describe("Phase 5 — Media Storage & Protection", () => {
     it("validates updateMediaSchema", () => {
       const valid = updateMediaSchema.safeParse({
         id: 1,
-        alt: { en: "Maa Kali Vigraha", bn: "মা কালী বিগ্রহ" },
+        alt: { en: "Maa Kali Vigraha", bn: "" },
       });
       expect(valid.success).toBe(true);
 
@@ -171,7 +171,7 @@ describe("Phase 5 — Media Storage & Protection", () => {
         size: 102400,
         width: 1200,
         height: 800,
-        alt: { en: "Temple Sanctum", bn: "গর্ভগৃহ" },
+        alt: { en: "Temple Sanctum", bn: "" },
       });
 
       expect(created.id).toBe(1);
@@ -184,7 +184,7 @@ describe("Phase 5 — Media Storage & Protection", () => {
 
       const updated = await MediaService.updateMedia(db, {
         id: 1,
-        alt: { en: "Updated Sanctum View", bn: "নতুন গর্ভগৃহ" },
+        alt: { en: "Updated Sanctum View", bn: "" },
       });
       expect(updated.alt.en).toBe("Updated Sanctum View");
     });
@@ -196,13 +196,13 @@ describe("Phase 5 — Media Storage & Protection", () => {
         size: 204800,
         width: 1080,
         height: 1920,
-        alt: { en: "Maa Kali", bn: "মা কালী" },
+        alt: { en: "Maa Kali", bn: "" },
       });
 
       // Insert deity referencing this media by id
       sqlite.run(`
         INSERT INTO deities (slug, name, subtitle, description, image_id, sort_order, active, created_at, updated_at)
-        VALUES ('maa-kali', '{"en":"Maa Kali","bn":"মা কালী"}', null, '{"en":"Desc","bn":""}', '${mediaItem.id}', 1, 1, 1000, 1000);
+        VALUES ('maa-kali', '{"en":"Maa Kali","bn":""}', null, '{"en":"Desc","bn":""}', '${mediaItem.id}', 1, 1, 1000, 1000);
       `);
 
       // Attempt to delete
@@ -226,7 +226,7 @@ describe("Phase 5 — Media Storage & Protection", () => {
         size: 51200,
         width: 800,
         height: 600,
-        alt: { en: "Aarti", bn: "আরতি" },
+        alt: { en: "Aarti", bn: "" },
       });
 
       // Insert album referencing cover

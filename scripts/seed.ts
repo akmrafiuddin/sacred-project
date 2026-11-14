@@ -305,7 +305,7 @@ export async function seedContentDatabase() {
   const corePages = [
     {
       slug: "about",
-      title: { en: "About the Holy Sanctum", bn: "পবিত্র মন্দির পরিচিতি" },
+      title: { en: "About the Holy Sanctum", bn: "" },
       body: {
         en: "Golpahar Mohashoshan Kali Mandir is a sacred refuge of worship, prayer, peace, and spiritual awakening in Chittagong, Bangladesh. For generations, devotees gather here for divine darshan of Bhavatarini Maa Kali, partake in evening aarti lamps, and partake in daily community Annadanam prasad.",
         bn: "",
@@ -313,7 +313,7 @@ export async function seedContentDatabase() {
     },
     {
       slug: "plan-a-visit",
-      title: { en: "Plan Your Holy Visit", bn: "দর্শনের নিয়মাবলী" },
+      title: { en: "Plan Your Holy Visit", bn: "" },
       body: {
         en: "Temple gates open daily from 5:00 AM to 1:00 PM, and re-open from 4:30 PM to 9:30 PM. Devotees are requested to dress respectfully, remove footwear before entering the parikrama hall, and maintain quiet sanctity within the garbhagriha.",
         bn: "",
@@ -321,7 +321,7 @@ export async function seedContentDatabase() {
     },
     {
       slug: "history",
-      title: { en: "Sacred Origins & History", bn: "ঐতিহাসিক পটভূমি" },
+      title: { en: "Sacred Origins & History", bn: "" },
       body: {
         en: "Rooted in the eternal spiritual tradition of Chattogram, Golpahar is celebrated as an ancient seat of tantric sadhana and devotion to Mahashoshan Kali. The temple has stood through centuries as a beacon of resilience, faith, and unconditional divine sanctuary.",
         bn: "",
@@ -329,7 +329,7 @@ export async function seedContentDatabase() {
     },
     {
       slug: "seva",
-      title: { en: "Partake in Devotee Seva", bn: "সেবায় অংশগ্রহণ" },
+      title: { en: "Partake in Devotee Seva", bn: "" },
       body: {
         en: "Seva is at the heart of our mandir. From early morning flower garlands and Vedic Chandi chanting to mid-day Annadanam cooking and holy prasad distribution, all devotees are welcome to offer their heartfelt service.",
         bn: "",
@@ -371,7 +371,7 @@ export async function seedContentDatabase() {
   const starterAlbums = [
     {
       slug: "kali-puja-deepotsav",
-      title: { en: "Kali Puja & Deepotsav Celebrations", bn: "দীপাবলি ও কালীপূজা মহোৎসব" },
+      title: { en: "Kali Puja & Deepotsav Celebrations", bn: "" },
       description: { en: "Sacred lamps and grand aarti during annual festival", bn: "" },
       cover: "/images/deities/kali.jpg",
       sortOrder: 1,
@@ -382,7 +382,7 @@ export async function seedContentDatabase() {
     },
     {
       slug: "mandir-sanctum-darshan",
-      title: { en: "Mandir Sanctum & Deities", bn: "মন্দির ও বিগ্রহ দর্শন" },
+      title: { en: "Mandir Sanctum & Deities", bn: "" },
       description: { en: "Divine shrines of Shiva, Ganesha, Krishna, and Lakshmi", bn: "" },
       cover: "/images/deities/shiva.jpg",
       sortOrder: 2,

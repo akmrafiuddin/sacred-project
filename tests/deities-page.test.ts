@@ -52,7 +52,7 @@ describe("Deities Page UI Data Normalization & Business Logic", () => {
       {
         id: 2,
         slug: "kali",
-        name: { en: "Maa Kali", bn: "মা কালী" },
+        name: { en: "Maa Kali", bn: "" },
         subtitle: { en: "Bhavatarini • The Divine Mother", bn: "" },
         description: { en: "The fierce and loving eternal protector.", bn: "" },
         imageId: "/images/deities/kali.jpg",
@@ -62,7 +62,7 @@ describe("Deities Page UI Data Normalization & Business Logic", () => {
       {
         id: 1,
         slug: "shiva",
-        name: { en: "Lord Shiva", bn: "মহাদেব" },
+        name: { en: "Lord Shiva", bn: "" },
         subtitle: { en: "Mahadeva • The Auspicious One", bn: "" },
         description: { en: "Revered as the eternal ascetic.", bn: "" },
         imageId: "/images/deities/shiva.jpg",

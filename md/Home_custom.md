@@ -77,7 +77,7 @@ The **Next aarti** badge on the hero is calculated automatically from the daily 
 ### Edit the text of a section
 
 1. In **Home Builder**, press **Edit** on the section.
-2. Each text field has two tabs: **English** and **বাংলা**. English is required. If the Bengali tab is empty, visitors see the English text.
+2. Enter the English text for the section.
 3. Change the text, then press **Save**.
 4. Buttons have a label and a link. A link can be a page on this site (for example `/puja-list-and-charges`) or a full `https://` address.
 
@@ -85,7 +85,7 @@ The **Next aarti** badge on the hero is calculated automatically from the daily 
 
 1. In the section form, press **Choose image**.
 2. Pick an image from the **Media library**, or upload a new one (JPEG, PNG or WebP, up to 5 MB).
-3. Add a short description of the image in English and Bengali. It helps visitors who use screen readers.
+3. Add a short description of the image in English. It helps visitors who use screen readers.
 4. Press **Save**.
 
 ### Use the announcement bar

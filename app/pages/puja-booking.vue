@@ -210,7 +210,7 @@ useHead({
                 :key="p.id"
                 :value="p.id"
               >
-                {{ p.name }} — ৳{{ p.priceBdt.toLocaleString() }} {{ p.duration ? `(${p.duration})` : '' }}
+                {{ p.name }} — BDT {{ p.priceBdt.toLocaleString() }} {{ p.duration ? `(${p.duration})` : '' }}
               </option>
             </select>
           </div>
@@ -225,7 +225,7 @@ useHead({
             </div>
             <div class="pill-dakshina">
               <span class="dakshina-label">Dakshina</span>
-              <span class="dakshina-val">৳{{ selectedPujaDetails.priceBdt.toLocaleString() }}</span>
+              <span class="dakshina-val">BDT {{ selectedPujaDetails.priceBdt.toLocaleString() }}</span>
             </div>
           </div>
 

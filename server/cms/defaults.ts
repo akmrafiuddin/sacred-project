@@ -138,7 +138,7 @@ export const defaultHomeData: HomePageData = {
       title: "Nitya puja",
       description: "The daily worship, offered on your behalf with your name and gotra read in the sankalpa.",
       offered: "Flowers, bel patra, incense, bhog and prasad",
-      price: "৳501",
+      price: "BDT 501",
       duration: "45 minutes",
     },
     {
@@ -147,7 +147,7 @@ export const defaultHomeData: HomePageData = {
       title: "Satyanarayan puja",
       description: "For a vow kept, a home blessed, or a promise fulfilled. Performed with the Satyanarayan katha.",
       offered: "Fruit, panchamrit, sweets and prasad for the household",
-      price: "৳1,501",
+      price: "BDT 1,501",
       duration: "2 hours",
     },
     {
@@ -156,7 +156,7 @@ export const defaultHomeData: HomePageData = {
       title: "Rudrabhishek",
       description: "Milk, honey and water poured over the Shiva lingam while the Rudram is chanted.",
       offered: "All samagri, flowers and prasad",
-      price: "৳2,001",
+      price: "BDT 2,001",
       duration: "1 hour 30 minutes",
     },
     {
@@ -165,7 +165,7 @@ export const defaultHomeData: HomePageData = {
       title: "Kali puja (individual)",
       description: "An individual Kali puja on the temple's Kali Puja night, with your name in the sankalpa.",
       offered: "Hibiscus, sindoor, lamps, prasad",
-      price: "৳2,501",
+      price: "BDT 2,501",
       duration: "1 hour",
     },
   ],

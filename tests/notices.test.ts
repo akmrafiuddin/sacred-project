@@ -60,10 +60,10 @@ describe("Notices Domain & CRUD", () => {
     it("validates notice input with Zod", () => {
       const valid = createNoticeSchema.safeParse({
         slug: "mandir-timing-update",
-        title: { en: "Mandir Timing Update", bn: "মন্দিরের সময়সূচী" },
+        title: { en: "Mandir Timing Update", bn: "" },
         category: "timings",
         date: "2026-11-10",
-        body: { en: "Morning gates open 5:30 AM", bn: "সকাল ৫:৩০ টায় খোলা হবে" },
+        body: { en: "Morning gates open 5:30 AM", bn: "" },
         pinned: true,
         active: true,
       });
@@ -107,10 +107,10 @@ describe("Notices Domain & CRUD", () => {
         db,
         {
           slug: "kali-puja-guidelines",
-          title: { en: "Kali Puja Guidelines", bn: "কালী পূজা নির্দেশিকা" },
+          title: { en: "Kali Puja Guidelines", bn: "" },
           category: "festival",
           date: "2026-11-10",
-          body: { en: "Devotees please queue peacefully", bn: "শান্তিপূর্ণভাবে দর্শন করুন" },
+          body: { en: "Devotees please queue peacefully", bn: "" },
           pinned: true,
           active: true,
         },
@@ -127,7 +127,7 @@ describe("Notices Domain & CRUD", () => {
 
       const fetched = await NoticesService.getBySlug(db, "kali-puja-guidelines");
       expect(fetched?.title.en).toBe("Kali Puja Guidelines");
-      expect(fetched?.title.bn).toBe("কালী পূজা নির্দেশিকা");
+      expect(fetched?.title.bn).toBe("");
 
       const updated = await NoticesService.update(
         db,

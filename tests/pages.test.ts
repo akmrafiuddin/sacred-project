@@ -30,8 +30,8 @@ describe("Phase 3 — Pages Domain", () => {
   it("validates page input with Zod", () => {
     const valid = createPageSchema.safeParse({
       slug: "about",
-      title: { en: "About Kali Mandir", bn: "কালী মন্দির সম্পর্কে" },
-      body: { en: "History and sacred origins...", bn: "ইতিহাস ও পবিত্র সূচনা..." },
+      title: { en: "About Kali Mandir", bn: "" },
+      body: { en: "History and sacred origins...", bn: "" },
       published: true,
     });
     expect(valid.success).toBe(true);

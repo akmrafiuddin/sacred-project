@@ -58,8 +58,8 @@ describe("Daily Schedule Domain & CRUD", () => {
     it("validates createScheduleSchema with strict 24h HH:mm format and localized text", () => {
       const valid = createScheduleSchema.safeParse({
         time: "05:30",
-        title: { en: "Mangala Aarti", bn: "মঙ্গলারতি" },
-        description: { en: "First darshan of the day", bn: "দিনের প্রথম দর্শন" },
+        title: { en: "Mangala Aarti", bn: "" },
+        description: { en: "First darshan of the day", bn: "" },
         sortOrder: 1,
         active: true,
       });
@@ -72,7 +72,7 @@ describe("Daily Schedule Domain & CRUD", () => {
       expect(createScheduleSchema.safeParse({ time: "invalid", title: { en: "A" }, description: { en: "B" } }).success).toBe(false);
 
       // Missing english text
-      expect(createScheduleSchema.safeParse({ time: "12:00", title: { en: "", bn: "বাংলা" }, description: { en: "B" } }).success).toBe(false);
+      expect(createScheduleSchema.safeParse({ time: "12:00", title: { en: "", bn: "" }, description: { en: "B" } }).success).toBe(false);
     });
 
     it("validates updateScheduleSchema and reorderScheduleSchema", () => {
@@ -125,8 +125,8 @@ describe("Daily Schedule Domain & CRUD", () => {
         db,
         {
           time: "05:00",
-          title: { en: "Mangala Aarti", bn: "মঙ্গলারতি" },
-          description: { en: "First prayer bell", bn: "প্রথম ঘণ্টা" },
+          title: { en: "Mangala Aarti", bn: "" },
+          description: { en: "First prayer bell", bn: "" },
           sortOrder: 1,
           active: true,
         },
@@ -136,7 +136,7 @@ describe("Daily Schedule Domain & CRUD", () => {
       expect(created.id).toBeDefined();
       expect(created.time).toBe("05:00");
       expect(created.title.en).toBe("Mangala Aarti");
-      expect(created.title.bn).toBe("মঙ্গলারতি");
+      expect(created.title.bn).toBe("");
       expect(created.active).toBe(true);
       expect(created.createdAt).toBeDefined();
       expect(created.updatedAt).toBeDefined();
@@ -160,8 +160,8 @@ describe("Daily Schedule Domain & CRUD", () => {
     it("updates existing schedule item and logs update audit", async () => {
       const created = await ScheduleService.create(db, {
         time: "07:00",
-        title: { en: "Nitya Puja", bn: "নিত্য পূজা" },
-        description: { en: "Daily worship", bn: "নিত্য পূজা" },
+        title: { en: "Nitya Puja", bn: "" },
+        description: { en: "Daily worship", bn: "" },
         sortOrder: 2,
         active: true,
       });
@@ -171,7 +171,7 @@ describe("Daily Schedule Domain & CRUD", () => {
         {
           id: created.id,
           time: "07:30",
-          title: { en: "Updated Nitya Puja", bn: "পরিবর্তিত নিত্য পূজা" },
+          title: { en: "Updated Nitya Puja", bn: "" },
           active: false,
         },
         "admin-user-id"
@@ -248,7 +248,7 @@ describe("Daily Schedule Domain & CRUD", () => {
     it("lists with pagination, active filter, and search query", async () => {
       await ScheduleService.create(db, {
         time: "05:00",
-        title: { en: "Mangala Aarti", bn: "মঙ্গলারতি" },
+        title: { en: "Mangala Aarti", bn: "" },
         description: { en: "First bell of the day", bn: "" },
         sortOrder: 1,
         active: true,
@@ -256,7 +256,7 @@ describe("Daily Schedule Domain & CRUD", () => {
 
       await ScheduleService.create(db, {
         time: "12:30",
-        title: { en: "Bhog Offering", bn: "ভোগ আরতি" },
+        title: { en: "Bhog Offering", bn: "" },
         description: { en: "Midday food offering", bn: "" },
         sortOrder: 2,
         active: true,
@@ -264,7 +264,7 @@ describe("Daily Schedule Domain & CRUD", () => {
 
       await ScheduleService.create(db, {
         time: "18:30",
-        title: { en: "Sandhya Aarti", bn: "সন্ধ্যারতি" },
+        title: { en: "Sandhya Aarti", bn: "" },
         description: { en: "Evening lamp and conch resonance", bn: "" },
         sortOrder: 3,
         active: true,
@@ -272,7 +272,7 @@ describe("Daily Schedule Domain & CRUD", () => {
 
       await ScheduleService.create(db, {
         time: "21:30",
-        title: { en: "Special Secret Puja", bn: "গুপ্ত পূজা" },
+        title: { en: "Special Secret Puja", bn: "" },
         description: { en: "Internal priest ritual", bn: "" },
         sortOrder: 4,
         active: false, // Inactive
