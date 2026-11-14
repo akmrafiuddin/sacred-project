@@ -11,6 +11,7 @@ const menuLinks = [
   { name: "Festivals", path: "/festivals-and-events" },
   { name: "Gallery", path: "/gallery" },
   { name: "Contact", path: "/contact" },
+  { name: "Sitemap", path: "/sitemap" },
 ];
 
 const scrollToTop = () => {
@@ -147,7 +148,8 @@ const scrollToTop = () => {
       <!-- Bottom Bar -->
       <div class="footer-bottom">
         <p class="copyright-text">
-          &copy; {{ currentYear }} Golpahar Mohashoshan Kali Mandir Trust. All rights reserved.
+          &copy; {{ currentYear }} Golpahar Mohashoshan Kali Mandir Trust. All rights reserved. &bull;
+          <NuxtLink to="/sitemap" class="footer-sitemap-link">Sitemap</NuxtLink>
         </p>
 
         <button type="button" class="back-to-top" aria-label="Scroll back to top" @click="scrollToTop">
@@ -385,6 +387,17 @@ const scrollToTop = () => {
 .copyright-text {
   color: var(--text-muted);
   margin: 0;
+}
+
+.footer-sitemap-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.footer-sitemap-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
 }
 
 .bottom-trust-note {
