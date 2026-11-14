@@ -385,23 +385,23 @@ const scrollToTop = () => {
 }
 
 .copyright-text {
-  color: var(--text-muted);
+  color: var(--footer-text-muted);
   margin: 0;
 }
 
 .footer-sitemap-link {
-  color: var(--text-muted);
+  color: var(--footer-text-muted);
   text-decoration: none;
   transition: color 0.15s ease;
 }
 
 .footer-sitemap-link:hover {
-  color: var(--accent);
+  color: var(--footer-heading, var(--accent));
   text-decoration: underline;
 }
 
 .bottom-trust-note {
-  color: var(--text-muted);
+  color: var(--footer-text-muted);
   font-size: 0.8rem;
 }
 
@@ -411,7 +411,7 @@ const scrollToTop = () => {
   gap: 0.35rem;
   background: transparent;
   border: none;
-  color: var(--text-secondary);
+  color: var(--footer-text-muted);
   font-size: 0.825rem;
   font-weight: 600;
   cursor: pointer;

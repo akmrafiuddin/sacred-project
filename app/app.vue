@@ -140,16 +140,14 @@ html.light {
   --kesari: #EA580C;
   --kesari-light: #FB923C;
 
-  /* Dark Mode Palette Tokens (available globally) */
-  --bg-main: #21262D;
-  --bg-panel: #161B22;
-  --bg-card: #1C2128;
-  --bg-hover: #252B33;
-  --border-subtle: #30363D;
-  --accent-gold: #D4AF37;
-  --accent-green: #4ADE80;
-  --accent-red: #EF4444;
-  --accent-blue: #6366F1;
+  /* Light Theme Specific Tokens & Palette Mappings */
+  --bg-main: #F7EFE0;                             /* Primary canvas background */
+  --bg-hover: #FAF3E8;                            /* Subtle hover state for cards & buttons */
+  --accent-gold: #D4AF37;                         /* Gold accent */
+  --accent-green: #15803D;                        /* Accessible green for light surfaces */
+  --accent-red: #DC2626;                          /* Accessible red for light surfaces */
+  --accent-blue: #2563EB;                         /* Accessible blue for light surfaces */
+  --color-live: #15803D;                          /* Live status indicator */
 
   /* Fonts */
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
