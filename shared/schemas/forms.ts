@@ -27,28 +27,57 @@ export const turnstileTokenField = z
   .string()
   .min(1, "Verification challenge token required");
 
-// 1. Puja Booking Request Submission
-export const pujaBookingSubmissionSchema = z.object({
-  pujaId: z.number().int().positive().optional(),
-  name: z
-    .string()
-    .trim()
-    .min(2, "Name must be at least 2 characters")
-    .max(100)
-    .transform(stripHtml),
-  phone: bdPhone,
-  email: z
-    .string()
-    .trim()
-    .email("Invalid email format")
-    .optional()
-    .or(z.literal("")),
-  gotra: z.string().trim().max(100).optional().transform((v) => (v ? stripHtml(v) : v)),
-  preferredDate: isoDate,
-  note: z.string().trim().max(500).optional().transform((v) => (v ? stripHtml(v) : v)),
-  honeypot: honeypotField,
-  turnstileToken: turnstileTokenField,
-});
+// 1. Puja Booking Request Submission (Standard & Custom Rituals)
+export const pujaTypeEnum = z.enum(["standard", "custom"]);
+export type PujaType = z.infer<typeof pujaTypeEnum>;
+
+export const pujaBookingSubmissionSchema = z
+  .object({
+    pujaType: pujaTypeEnum.default("standard"),
+    pujaId: z.number().int().positive().optional(),
+    customPujaName: z
+      .string()
+      .trim()
+      .max(150)
+      .optional()
+      .transform((v) => (v ? stripHtml(v) : v)),
+    specialInstructions: z
+      .string()
+      .trim()
+      .max(1000)
+      .optional()
+      .transform((v) => (v ? stripHtml(v) : v)),
+    name: z
+      .string()
+      .trim()
+      .min(2, "Name must be at least 2 characters")
+      .max(100)
+      .transform(stripHtml),
+    phone: bdPhone,
+    email: z
+      .string()
+      .trim()
+      .email("Invalid email format")
+      .optional()
+      .or(z.literal("")),
+    gotra: z.string().trim().max(100).optional().transform((v) => (v ? stripHtml(v) : v)),
+    preferredDate: isoDate,
+    note: z.string().trim().max(500).optional().transform((v) => (v ? stripHtml(v) : v)),
+    honeypot: honeypotField,
+    turnstileToken: turnstileTokenField,
+  })
+  .refine(
+    (data) => {
+      if (data.pujaType === "custom") {
+        return !!data.customPujaName && data.customPujaName.length >= 2;
+      }
+      return true;
+    },
+    {
+      message: "Custom puja name is required for custom puja bookings",
+      path: ["customPujaName"],
+    }
+  );
 
 export type PujaBookingSubmission = z.infer<typeof pujaBookingSubmissionSchema>;
 
@@ -120,6 +149,7 @@ export const listBookingsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   status: bookingStatusEnum.optional(),
+  pujaType: pujaTypeEnum.optional(),
   date: z.string().optional(),
   search: z.string().trim().optional(),
 });
@@ -130,6 +160,7 @@ export const updateBookingStatusSchema = z.object({
   id: z.number().int().positive(),
   status: bookingStatusEnum,
   adminNote: z.string().max(500).optional(),
+  customDakshina: z.number().int().min(0).optional(),
   handledBy: z.string().optional(),
 });
 

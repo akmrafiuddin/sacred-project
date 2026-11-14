@@ -9,6 +9,14 @@ export const pujaBookings = sqliteTable(
     ref: text("ref").notNull().unique(), // Unique public non-guessable code (e.g. KM-2026-7F3K9)
     userId: text("user_id").references(() => user.id, { onDelete: "set null" }), // Nullable for guests
     pujaId: integer("puja_id").references(() => pujas.id, { onDelete: "set null" }), // Nullable for custom/other
+    pujaType: text("puja_type", {
+      enum: ["standard", "custom"],
+    })
+      .notNull()
+      .default("standard"),
+    customPujaName: text("custom_puja_name"), // Specified name when pujaType is 'custom'
+    customDakshina: integer("custom_dakshina"), // Admin-approved / quoted amount in BDT for custom rituals
+    specialInstructions: text("special_instructions"), // Custom sankalpa/samagri/priest instructions
     name: text("name").notNull(),
     phone: text("phone").notNull(),
     email: text("email"),
@@ -28,6 +36,7 @@ export const pujaBookings = sqliteTable(
   (table) => ({
     refIdx: index("puja_bookings_ref_idx").on(table.ref),
     userIdIdx: index("puja_bookings_user_id_idx").on(table.userId),
+    pujaTypeIdx: index("puja_bookings_type_idx").on(table.pujaType),
     statusIdx: index("puja_bookings_status_idx").on(table.status),
     preferredDateIdx: index("puja_bookings_pref_date_idx").on(table.preferredDate),
   })
