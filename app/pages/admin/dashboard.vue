@@ -8,6 +8,13 @@ import type { FormattedNoticeItem } from "~~/server/services/notices";
 import type { FormattedEventItem } from "~~/server/services/events";
 import type { BookingStatus, MessageStatus } from "~~/shared/schemas/forms";
 import { defaultAboutData, type AboutPageData } from "~~/server/cms/aboutDefaults";
+import {
+  defaultSiteSettingsData,
+  type SiteSettingsData,
+  FONT_OPTIONS_HEADING,
+  FONT_OPTIONS_BODY,
+  THEME_PALETTES,
+} from "~~/shared/schemas/siteSettings";
 
 useHead({
   title: "Sanctum Dashboard - Temple Console",
@@ -28,7 +35,9 @@ watchEffect(() => {
 });
 
 const isSidebarOpen = ref(false);
-const activeModule = ref<"dashboard" | "schedule" | "pujas" | "events" | "deities" | "notices" | "bookings" | "messages" | "about_cms">("dashboard");
+const activeModule = ref<
+  "dashboard" | "schedule" | "pujas" | "events" | "deities" | "notices" | "bookings" | "messages" | "about_cms" | "site_settings"
+>("dashboard");
 
 // Current date formatted
 const formattedDate = ref("");
@@ -53,6 +62,7 @@ const navItems = [
   { id: "bookings", label: "Puja Bookings", badge: "Devotees" },
   { id: "messages", label: "Contact Messages", badge: "Inquiries" },
   { id: "about_cms", label: "About Page Content", badge: "CMS" },
+  { id: "site_settings", label: "General Site Settings", badge: "Global" },
 ];
 
 // Navigation Groups for clean sidebar structure
@@ -94,7 +104,82 @@ const navGroups = computed(() => [
       },
     ],
   },
+  {
+    title: "Configuration",
+    items: [
+      { id: "site_settings", label: "General Site Settings", badge: "Global" },
+    ],
+  },
 ]);
+
+
+// =========================================================================
+// GENERAL SITE SETTINGS STATE & METHODS
+// =========================================================================
+const siteSettingsData = ref<SiteSettingsData>(JSON.parse(JSON.stringify(defaultSiteSettingsData)));
+const loadingSiteSettings = ref(false);
+const savingSiteSettings = ref(false);
+
+const applyPalettePreset = (paletteId: string) => {
+  const p = THEME_PALETTES.find((pal) => pal.id === paletteId);
+  if (p) {
+    siteSettingsData.value.theme.colorPalette = p.id;
+    siteSettingsData.value.theme.primaryColor = p.primary;
+    siteSettingsData.value.theme.secondaryColor = p.secondary;
+    siteSettingsData.value.theme.accentColor = p.accent;
+    siteSettingsData.value.theme.backgroundColor = p.bg;
+  }
+};
+
+const fetchSiteSettingsData = async () => {
+  loadingSiteSettings.value = true;
+  try {
+    const res = await $fetch<SiteSettingsData>("/api/cms/site-settings");
+    if (res) {
+      siteSettingsData.value = JSON.parse(JSON.stringify(res));
+    }
+  } catch (err: any) {
+    console.error("Failed to load site settings:", err);
+  } finally {
+    loadingSiteSettings.value = false;
+  }
+};
+
+const saveSiteSettings = async () => {
+  savingSiteSettings.value = true;
+  try {
+    const res = await $fetch<{ success: boolean; data: SiteSettingsData }>("/api/cms/site-settings", {
+      method: "POST",
+      body: { data: siteSettingsData.value },
+    });
+    if (res.success) {
+      showToast("General site settings saved successfully!");
+    }
+  } catch (err: any) {
+    showToast(err?.data?.message || err?.message || "Failed to save site settings", "error");
+  } finally {
+    savingSiteSettings.value = false;
+  }
+};
+
+const resetSiteSettings = async () => {
+  if (!confirm("Are you sure you want to reset all General Site Settings to default temple values?")) return;
+  savingSiteSettings.value = true;
+  try {
+    const res = await $fetch<{ success: boolean; data: SiteSettingsData }>("/api/cms/site-settings", {
+      method: "POST",
+      body: { action: "reset" },
+    });
+    if (res.success) {
+      siteSettingsData.value = JSON.parse(JSON.stringify(res.data));
+      showToast("Site settings reset to temple defaults!");
+    }
+  } catch (err: any) {
+    showToast(err?.data?.message || err?.message || "Failed to reset site settings", "error");
+  } finally {
+    savingSiteSettings.value = false;
+  }
+};
 
 
 // =========================================================================
@@ -212,6 +297,7 @@ onMounted(() => {
   fetchBookingsData();
   fetchMessagesData();
   fetchAboutCmsData();
+  fetchSiteSettingsData();
 });
 
 // Filtered schedule list
@@ -3501,6 +3587,466 @@ const executeDeleteEvent = async () => {
         </div>
 
         <!-- =============================================================== -->
+        <!-- TAB: GENERAL SITE SETTINGS                                      -->
+        <!-- =============================================================== -->
+        <div v-else-if="activeModule === 'site_settings'" class="tab-pane">
+          <!-- Module Header -->
+          <div class="module-header-row">
+            <div>
+              <h1 class="module-title">General Site Settings</h1>
+              <p class="module-subtitle">
+                Configure global typography, theme palettes, brand identity, favicon, social channels, and temple contact details.
+              </p>
+            </div>
+            <div class="module-header-actions">
+              <button
+                type="button"
+                class="btn-refresh"
+                :disabled="savingSiteSettings"
+                @click="resetSiteSettings"
+                title="Reset all settings to temple defaults"
+              >
+                Reset Defaults
+              </button>
+              <button
+                type="button"
+                class="btn-primary"
+                :disabled="savingSiteSettings"
+                @click="saveSiteSettings"
+              >
+                <span>{{ savingSiteSettings ? 'Saving...' : 'Save Settings' }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Loading state -->
+          <div v-if="loadingSiteSettings" class="schedule-table-card">
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <span>Loading site settings from database...</span>
+            </div>
+          </div>
+
+          <form v-else class="cms-form-stack" @submit.prevent="saveSiteSettings">
+            <!-- 1. BRAND IDENTITY & FAVICON -->
+            <div class="cms-card">
+              <div class="cms-card-header">
+                <h2 class="cms-card-title">1. Brand Identity, Favicon &amp; Logos</h2>
+                <span class="cms-card-sub">Site title, tagline, favicon path, and logo metadata</span>
+              </div>
+              <div class="cms-card-body">
+                <div class="grid-2-cols mb-3">
+                  <div class="form-group">
+                    <label class="form-label">Mandir / Site Title *</label>
+                    <input
+                      v-model="siteSettingsData.brand.siteTitle"
+                      type="text"
+                      required
+                      class="form-input"
+                      placeholder="e.g. Golpahar Mohashoshan Kali Mandir"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Site Tagline / Slogan</label>
+                    <input
+                      v-model="siteSettingsData.brand.siteTagline"
+                      type="text"
+                      class="form-input"
+                      placeholder="e.g. A Sacred Haven of Divine Worship, Peace & Heritage"
+                    />
+                  </div>
+                </div>
+
+                <div class="grid-2-cols mb-3">
+                  <div class="form-group">
+                    <label class="form-label">Favicon Path or URL</label>
+                    <div class="input-with-preview">
+                      <input
+                        v-model="siteSettingsData.brand.faviconUrl"
+                        type="text"
+                        class="form-input"
+                        placeholder="e.g. /favicon.ico"
+                      />
+                      <div class="preview-mini-badge" title="Favicon preview">
+                        <img
+                          v-if="siteSettingsData.brand.faviconUrl"
+                          :src="siteSettingsData.brand.faviconUrl"
+                          alt="Favicon preview"
+                          class="favicon-preview-img"
+                          @error="(e: any) => (e.target.style.display = 'none')"
+                        />
+                        <span v-else class="text-muted-mini">ico</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Main Logo Path or URL</label>
+                    <input
+                      v-model="siteSettingsData.brand.logoUrl"
+                      type="text"
+                      class="form-input"
+                      placeholder="e.g. /images/temple-logo.svg"
+                    />
+                  </div>
+                </div>
+
+                <div class="form-group mb-0">
+                  <label class="form-label">Footer Copyright Notice</label>
+                  <input
+                    v-model="siteSettingsData.brand.footerCopyright"
+                    type="text"
+                    class="form-input"
+                    placeholder="e.g. © 2026 Golpahar Mohashoshan Kali Mandir Committee."
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. TYPOGRAPHY & FONTS -->
+            <div class="cms-card">
+              <div class="cms-card-header">
+                <h2 class="cms-card-title">2. Global Typography &amp; Fonts</h2>
+                <span class="cms-card-sub">Choose typeface pairings for headings and body content</span>
+              </div>
+              <div class="cms-card-body">
+                <div class="grid-3-cols mb-3">
+                  <div class="form-group">
+                    <label class="form-label">Heading Typeface</label>
+                    <select v-model="siteSettingsData.typography.headingFont" class="form-select">
+                      <option v-for="font in FONT_OPTIONS_HEADING" :key="font" :value="font">
+                        {{ font }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Body Text Typeface</label>
+                    <select v-model="siteSettingsData.typography.bodyFont" class="form-select">
+                      <option v-for="font in FONT_OPTIONS_BODY" :key="font" :value="font">
+                        {{ font }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Base Font Size</label>
+                    <select v-model="siteSettingsData.typography.baseFontSize" class="form-select">
+                      <option value="15px">Compact (15px)</option>
+                      <option value="16px">Standard (16px - Recommended)</option>
+                      <option value="17px">Comfortable (17px)</option>
+                      <option value="18px">Large (18px)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Live Typography Preview Card -->
+                <div class="font-preview-box">
+                  <span class="preview-tag">LIVE TYPEFACE SAMPLE</span>
+                  <h3
+                    class="font-preview-heading"
+                    :style="{ fontFamily: siteSettingsData.typography.headingFont }"
+                  >
+                    জয় মা তারা জয় মা ভবতারিণী · Divine Sanctuary
+                  </h3>
+                  <p
+                    class="font-preview-body"
+                    :style="{
+                      fontFamily: siteSettingsData.typography.bodyFont,
+                      fontSize: siteSettingsData.typography.baseFontSize,
+                    }"
+                  >
+                    Consecrated with sacred Vedic tradition and eternal devotion, the temple stands as a haven of peace, divine contemplation, and spiritual awakening in Chittagong.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. THEME & COLOR PALETTE -->
+            <div class="cms-card">
+              <div class="cms-card-header">
+                <h2 class="cms-card-title">3. Theme Colors &amp; Sacred Palette</h2>
+                <span class="cms-card-sub">Pick a consecrated preset or customize exact hex brand colors</span>
+              </div>
+              <div class="cms-card-body">
+                <!-- Preset Palettes Selection -->
+                <div class="form-group mb-4">
+                  <label class="form-label">Preset Mandir Palettes</label>
+                  <div class="palette-presets-grid">
+                    <button
+                      v-for="pal in THEME_PALETTES"
+                      :key="pal.id"
+                      type="button"
+                      class="palette-preset-card"
+                      :class="{ 'palette-selected': siteSettingsData.theme.colorPalette === pal.id }"
+                      @click="applyPalettePreset(pal.id)"
+                    >
+                      <div class="palette-swatches">
+                        <span class="swatch-circle" :style="{ backgroundColor: pal.primary }"></span>
+                        <span class="swatch-circle" :style="{ backgroundColor: pal.secondary }"></span>
+                        <span class="swatch-circle" :style="{ backgroundColor: pal.accent }"></span>
+                        <span class="swatch-circle" :style="{ backgroundColor: pal.bg }"></span>
+                      </div>
+                      <span class="palette-card-name">{{ pal.name }}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Color Inputs Row -->
+                <div class="grid-4-cols mb-4">
+                  <div class="form-group">
+                    <label class="form-label">Primary Color</label>
+                    <div class="color-picker-input-group">
+                      <input
+                        v-model="siteSettingsData.theme.primaryColor"
+                        type="color"
+                        class="color-swatch-input"
+                      />
+                      <input
+                        v-model="siteSettingsData.theme.primaryColor"
+                        type="text"
+                        class="form-input color-hex-text"
+                        placeholder="#6E0516"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Secondary / Gold</label>
+                    <div class="color-picker-input-group">
+                      <input
+                        v-model="siteSettingsData.theme.secondaryColor"
+                        type="color"
+                        class="color-swatch-input"
+                      />
+                      <input
+                        v-model="siteSettingsData.theme.secondaryColor"
+                        type="text"
+                        class="form-input color-hex-text"
+                        placeholder="#E0A526"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Accent / Highlight</label>
+                    <div class="color-picker-input-group">
+                      <input
+                        v-model="siteSettingsData.theme.accentColor"
+                        type="color"
+                        class="color-swatch-input"
+                      />
+                      <input
+                        v-model="siteSettingsData.theme.accentColor"
+                        type="text"
+                        class="form-input color-hex-text"
+                        placeholder="#D97706"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Background Tone</label>
+                    <div class="color-picker-input-group">
+                      <input
+                        v-model="siteSettingsData.theme.backgroundColor"
+                        type="color"
+                        class="color-swatch-input"
+                      />
+                      <input
+                        v-model="siteSettingsData.theme.backgroundColor"
+                        type="text"
+                        class="form-input color-hex-text"
+                        placeholder="#F7EFE0"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Default theme mode -->
+                <div class="form-group mb-0">
+                  <label class="form-label">Default Theme Mode</label>
+                  <select v-model="siteSettingsData.theme.defaultThemeMode" class="form-select" style="max-width: 280px;">
+                    <option value="light">Light Mode (Sacred Sindoor &amp; Gold)</option>
+                    <option value="dark">Dark Mode (Deep Nocturnal Sanctum)</option>
+                    <option value="system">Follow User System Preference</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. SOCIAL MEDIA CHANNELS -->
+            <div class="cms-card">
+              <div class="cms-card-header">
+                <h2 class="cms-card-title">4. Social Media Channels &amp; Links</h2>
+                <span class="cms-card-sub">Official communication links shown in the footer and contact sections</span>
+              </div>
+              <div class="cms-card-body">
+                <div class="grid-2-cols mb-3">
+                  <div class="form-group">
+                    <label class="form-label">Facebook Page URL</label>
+                    <input
+                      v-model="siteSettingsData.social.facebookUrl"
+                      type="url"
+                      class="form-input"
+                      placeholder="https://facebook.com/golpaharkalimandir"
+                    />
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">YouTube Channel URL</label>
+                    <input
+                      v-model="siteSettingsData.social.youtubeUrl"
+                      type="url"
+                      class="form-input"
+                      placeholder="https://youtube.com/@golpaharkalimandir"
+                    />
+                  </div>
+                </div>
+
+                <div class="grid-3-cols mb-0">
+                  <div class="form-group">
+                    <label class="form-label">Instagram Handle / URL</label>
+                    <input
+                      v-model="siteSettingsData.social.instagramUrl"
+                      type="text"
+                      class="form-input"
+                      placeholder="https://instagram.com/golpaharkalimandir"
+                    />
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">WhatsApp Number / Link</label>
+                    <input
+                      v-model="siteSettingsData.social.whatsappNumber"
+                      type="text"
+                      class="form-input"
+                      placeholder="+880 1819-000000"
+                    />
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Twitter / X URL</label>
+                    <input
+                      v-model="siteSettingsData.social.twitterUrl"
+                      type="text"
+                      class="form-input"
+                      placeholder="https://x.com/golpaharmandir"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 5. CONTACT & MANDIR LOCATION -->
+            <div class="cms-card">
+              <div class="cms-card-header">
+                <h2 class="cms-card-title">5. Official Contact &amp; Mandir Location</h2>
+                <span class="cms-card-sub">Inquiry email, devotee hotline phone, and temple location</span>
+              </div>
+              <div class="cms-card-body">
+                <div class="grid-2-cols mb-3">
+                  <div class="form-group">
+                    <label class="form-label">Official Mandir Email</label>
+                    <input
+                      v-model="siteSettingsData.contact.email"
+                      type="email"
+                      class="form-input"
+                      placeholder="contact@golpaharkalimandir.org"
+                    />
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Devotee Hotline / Phone</label>
+                    <input
+                      v-model="siteSettingsData.contact.phone"
+                      type="text"
+                      class="form-input"
+                      placeholder="+880 31 654321"
+                    />
+                  </div>
+                </div>
+
+                <div class="form-group mb-3">
+                  <label class="form-label">Physical Mandir Address</label>
+                  <input
+                    v-model="siteSettingsData.contact.address"
+                    type="text"
+                    class="form-input"
+                    placeholder="Golpahar, Mehedibag Road, Chittagong, Bangladesh"
+                  />
+                </div>
+
+                <div class="form-group mb-0">
+                  <label class="form-label">Google Maps Directions Link</label>
+                  <input
+                    v-model="siteSettingsData.contact.googleMapsUrl"
+                    type="url"
+                    class="form-input"
+                    placeholder="https://maps.google.com/?q=Golpahar+Kali+Mandir"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- 6. ANNOUNCEMENT BANNER -->
+            <div class="cms-card">
+              <div class="cms-card-header">
+                <h2 class="cms-card-title">6. Global Announcement Banner</h2>
+                <span class="cms-card-sub">Top bar banner for urgent temple alerts, holiday notices, or festival announcements</span>
+              </div>
+              <div class="cms-card-body">
+                <div class="form-group mb-3">
+                  <label class="checkbox-label" style="display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input
+                      v-model="siteSettingsData.announcement.enabled"
+                      type="checkbox"
+                      class="form-checkbox"
+                    />
+                    <span style="font-weight: 600; font-size: 0.9rem; color: var(--adm-text-main);">
+                      Enable Global Announcement Banner
+                    </span>
+                  </label>
+                </div>
+
+                <div class="grid-2-cols mb-0">
+                  <div class="form-group">
+                    <label class="form-label">Banner Notice Text</label>
+                    <input
+                      v-model="siteSettingsData.announcement.message"
+                      type="text"
+                      class="form-input"
+                      placeholder="e.g. Special Kali Puja darshan timings will begin at 6:00 PM."
+                    />
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Banner Action Link (Optional)</label>
+                    <input
+                      v-model="siteSettingsData.announcement.link"
+                      type="text"
+                      class="form-input"
+                      placeholder="e.g. /festivals-and-events"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Save Action Button Bottom -->
+            <div class="module-header-actions mt-4 pb-4">
+              <button
+                type="submit"
+                class="btn-primary"
+                :disabled="savingSiteSettings"
+              >
+                <span>{{ savingSiteSettings ? 'Saving Changes...' : 'Save General Site Settings' }}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- =============================================================== -->
         <!-- TAB 8: CONTACT MESSAGES & INQUIRIES                             -->
         <!-- =============================================================== -->
         <div v-else-if="activeModule === 'messages'" class="tab-pane">
@@ -6635,10 +7181,175 @@ input:checked + .switch-slider-blue {
   gap: 1rem;
 }
 
-@media (max-width: 640px) {
-  .grid-2-cols {
+.grid-3-cols {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.grid-4-cols {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .grid-2-cols,
+  .grid-3-cols,
+  .grid-4-cols {
     grid-template-columns: 1fr;
   }
+}
+
+/* Site Settings Components */
+.input-with-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.preview-mini-badge {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--adm-surface-alt, #fafafa);
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-sm, 6px);
+  overflow: hidden;
+}
+
+.favicon-preview-img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.text-muted-mini {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--adm-text-light);
+}
+
+.font-preview-box {
+  margin-top: 1rem;
+  padding: 1.25rem 1.5rem;
+  background: var(--adm-surface-alt, #f8fafc);
+  border: 1px dashed var(--adm-border);
+  border-radius: var(--adm-radius-md, 8px);
+}
+
+.preview-tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--adm-primary, #6E0516);
+  margin-bottom: 0.5rem;
+}
+
+.font-preview-heading {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--adm-text-main, #1e293b);
+  margin: 0 0 0.5rem;
+  line-height: 1.35;
+}
+
+.font-preview-body {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--adm-text-secondary, #475569);
+}
+
+/* Palette Presets Selection Grid */
+.palette-presets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.palette-preset-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  background: var(--adm-surface);
+  border: 1.5px solid var(--adm-border);
+  border-radius: var(--adm-radius-md, 8px);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.palette-preset-card:hover {
+  border-color: var(--adm-primary, #6E0516);
+  transform: translateY(-1px);
+}
+
+.palette-preset-card.palette-selected {
+  border-color: var(--adm-primary, #6E0516);
+  background: rgba(110, 5, 22, 0.04);
+  box-shadow: 0 0 0 2px rgba(110, 5, 22, 0.15);
+}
+
+.palette-swatches {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.swatch-circle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.palette-card-name {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--adm-text-main);
+}
+
+/* Color Picker Input Group */
+.color-picker-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.color-swatch-input {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 40px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-sm, 6px);
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.color-swatch-input::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.color-swatch-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+
+.color-hex-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
 }
 
 /* ====================================================
