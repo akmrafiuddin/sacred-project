@@ -13,11 +13,13 @@ useHead({
   title: "Sanctum Dashboard - Temple Console",
 });
 
-const { isAuthenticated, isStaff, isAdmin, isEditor, currentUser, role, logout } = useAuth();
+const { isAuthenticated, isPending, isStaff, isAdmin, isEditor, currentUser, role, logout } = useAuth();
 const { $trpc } = useNuxtApp();
 
 // Route guard - only admin or editor can access /admin/**
 watchEffect(() => {
+  if (isPending.value) return;
+
   if (!isAuthenticated.value) {
     navigateTo("/admin/login");
   } else if (!isStaff.value) {
@@ -1817,7 +1819,12 @@ const executeDeleteEvent = async () => {
 </script>
 
 <template>
-  <div class="admin-layout">
+  <div v-if="isPending" class="admin-auth-loading">
+    <div class="admin-auth-spinner"></div>
+    <span class="admin-auth-text">Verifying administrative access...</span>
+  </div>
+
+  <div v-else class="admin-layout">
     <!-- TOAST NOTIFICATION -->
     <transition name="toast-fade">
       <div v-if="toast.show" class="admin-toast" :class="`toast-${toast.type}`">
@@ -7475,5 +7482,31 @@ input:checked + .switch-slider-blue {
   .notice-row-item { flex-direction: column; align-items: flex-start; gap: 0.65rem; }
   .booking-row-item { flex-direction: column; align-items: flex-start; gap: 0.65rem; }
   .booking-actions-col { width: 100%; justify-content: flex-start; }
+}
+
+.admin-auth-loading {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  background: var(--bg-primary, #F7EFE0);
+  color: var(--text-secondary, #6B7280);
+}
+
+.admin-auth-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(224, 165, 38, 0.2);
+  border-top-color: var(--accent, #6E0516);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.admin-auth-text {
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 </style>

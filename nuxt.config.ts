@@ -3,6 +3,10 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   spaLoadingTemplate: false,
   ssr: true,
+  routeRules: {
+    "/admin/**": { ssr: false },
+    "/account/**": { ssr: false },
+  },
   modules: ["nitro-cloudflare-dev"],
   build: { transpile: ["trpc-nuxt"] },
   nitro: {
